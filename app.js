@@ -77,6 +77,7 @@ const elements = {
     tabs: Array.from(document.querySelectorAll('[data-tab-target]')),
     panels: Array.from(document.querySelectorAll('[data-tab]')),
     customerName: document.getElementById('customerName'),
+    customerPhone: document.getElementById('customerPhone'),
     category: document.getElementById('category'),
     model: document.getElementById('model'),
     customModelName: document.getElementById('customModelName'),
@@ -101,10 +102,14 @@ const elements = {
     lastContactAt: document.getElementById('lastContactAt'),
     notes: document.getElementById('notes'),
     saveRecord: document.getElementById('saveRecord'),
+    sendQuoteWhatsapp: document.getElementById('sendQuoteWhatsapp'),
+    sendChargeWhatsapp: document.getElementById('sendChargeWhatsapp'),
     duplicateQuote: document.getElementById('duplicateQuote'),
     cancelEditing: document.getElementById('cancelEditing'),
     quoteOutput: document.getElementById('quoteOutput'),
     recordsList: document.getElementById('recordsList'),
+    importJson: document.getElementById('importJson'),
+    importJsonFile: document.getElementById('importJsonFile'),
     exportJson: document.getElementById('exportJson'),
     metricRevenue: document.getElementById('metricRevenue'),
     metricProfit: document.getElementById('metricProfit'),
@@ -132,6 +137,19 @@ function loadRecords() {
     } catch {
         return [];
     }
+}
+
+function normalizePhone(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+function openWhatsApp(phone, text) {
+    const cleanPhone = normalizePhone(phone);
+    const base = cleanPhone
+        ? `https://wa.me/${cleanPhone}`
+        : 'https://wa.me/';
+    const url = `${base}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
 }
 
 function persistRecords() {
@@ -228,6 +246,7 @@ function buildQuote() {
 
     return {
         customerName: elements.customerName.value.trim(),
+        customerPhone: normalizePhone(elements.customerPhone.value),
         deliveryMode: elements.deliveryMode.value,
         freeFreightManaus: elements.freeFreightManaus.checked,
         freight,
@@ -346,6 +365,7 @@ function resetEditing() {
 
 function clearForm() {
     elements.customerName.value = '';
+    elements.customerPhone.value = '';
     elements.customModelName.value = '';
     elements.customUnitPrice.value = '';
     elements.quantity.value = '';
@@ -376,6 +396,7 @@ function loadRecord(id) {
     elements.saveRecord.textContent = 'Atualizar registro';
 
     elements.customerName.value = record.customerName;
+    elements.customerPhone.value = record.customerPhone || '';
     elements.deliveryMode.value = record.quote.deliveryMode;
     elements.freightValue.value = record.quote.freight || '';
     elements.freeFreightManaus.checked = Boolean(record.quote.freeFreightManaus);
@@ -421,6 +442,7 @@ function saveRecord() {
             : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         customerName: state.lastQuote.customerName,
+        customerPhone: state.lastQuote.customerPhone || '',
         status: elements.status.value,
         quote: state.lastQuote,
         supplierCost,
@@ -462,6 +484,39 @@ function exportJson() {
     anchor.download = 'kd-comercial-mobile-records.json';
     anchor.click();
     URL.revokeObjectURL(url);
+}
+
+async function importJson(file) {
+    if (!file) return;
+    const text = await file.text();
+    const incoming = JSON.parse(text);
+    if (!Array.isArray(incoming)) return;
+    state.records = incoming;
+    persistRecords();
+    renderRecords();
+    renderDashboard();
+}
+
+function sendCurrentQuoteWhatsapp() {
+    if (!state.lastQuote?.text) return;
+    openWhatsApp(elements.customerPhone.value || state.lastQuote.customerPhone, state.lastQuote.text);
+}
+
+function sendChargeWhatsapp() {
+    const quote = state.lastQuote;
+    if (!quote) return;
+    const supplierCost = Number(elements.supplierCost.value) || quote.autoSupplierCost || 0;
+    const receivedAmount = Number(elements.receivedAmount.value) || 0;
+    const pending = Number((quote.total - receivedAmount).toFixed(2));
+    if (pending <= 0) return;
+    const message = [
+        `Ola, ${quote.customerName}.`,
+        `Passando para lembrar do saldo em aberto do seu pedido na KD Embalagens.`,
+        `Valor pendente: ${money(pending)}`,
+        '',
+        'Se quiser, ja posso te passar a chave Pix e finalizar isso agora.'
+    ].join('\n');
+    openWhatsApp(elements.customerPhone.value || quote.customerPhone, message);
 }
 
 function switchTab(target) {
@@ -511,6 +566,15 @@ elements.generateQuote.addEventListener('click', () => {
 });
 
 elements.saveRecord.addEventListener('click', saveRecord);
+elements.sendQuoteWhatsapp.addEventListener('click', sendCurrentQuoteWhatsapp);
+elements.sendChargeWhatsapp.addEventListener('click', sendChargeWhatsapp);
+elements.importJson.addEventListener('click', () => elements.importJsonFile.click());
+elements.importJsonFile.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await importJson(file);
+    event.target.value = '';
+});
 elements.exportJson.addEventListener('click', exportJson);
 elements.cancelEditing.addEventListener('click', () => {
     resetEditing();
