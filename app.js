@@ -100,12 +100,14 @@ const elements = {
     pixKey: document.getElementById('pixKey'),
     leadSource: document.getElementById('leadSource'),
     supplierName: document.getElementById('supplierName'),
+    supplierPhone: document.getElementById('supplierPhone'),
     status: document.getElementById('status'),
     nextFollowUpAt: document.getElementById('nextFollowUpAt'),
     lastContactAt: document.getElementById('lastContactAt'),
     notes: document.getElementById('notes'),
     saveRecord: document.getElementById('saveRecord'),
     sendQuoteWhatsapp: document.getElementById('sendQuoteWhatsapp'),
+    sendSupplierWhatsapp: document.getElementById('sendSupplierWhatsapp'),
     downloadQuotePdf: document.getElementById('downloadQuotePdf'),
     sendChargeWhatsapp: document.getElementById('sendChargeWhatsapp'),
     generateReceipt: document.getElementById('generateReceipt'),
@@ -552,6 +554,7 @@ function clearForm() {
     elements.supplierPaid.checked = false;
     elements.pixKey.value = '';
     elements.supplierName.value = '';
+    elements.supplierPhone.value = '';
     elements.notes.value = '';
     elements.nextFollowUpAt.value = '';
     elements.lastContactAt.value = '';
@@ -590,6 +593,7 @@ function loadRecord(id) {
     elements.pixKey.value = record.pixKey || '';
     elements.leadSource.value = record.leadSource;
     elements.supplierName.value = record.supplierName || '';
+    elements.supplierPhone.value = record.supplierPhone || '';
     elements.status.value = record.status;
     elements.nextFollowUpAt.value = record.nextFollowUpAt || '';
     elements.lastContactAt.value = record.lastContactAt || '';
@@ -646,6 +650,7 @@ function saveRecord() {
         receiptText,
         leadSource: elements.leadSource.value,
         supplierName: elements.supplierName.value.trim(),
+        supplierPhone: normalizePhone(elements.supplierPhone.value),
         repassedAmount,
         supplierPaid: repassedAmount >= supplierCost && supplierCost > 0,
         customerPendingAmount: Number((state.lastQuote.total - receivedAmount).toFixed(2)),
@@ -690,6 +695,32 @@ async function importJson(file) {
 function sendCurrentQuoteWhatsapp() {
     if (!state.lastQuote?.text) return;
     openWhatsApp(elements.customerPhone.value || state.lastQuote.customerPhone, state.lastQuote.text);
+}
+
+function sendSupplierWhatsapp() {
+    const quote = state.lastQuote;
+    if (!quote) return;
+
+    const supplierPhone = normalizePhone(elements.supplierPhone.value);
+    const customerName = quote.customerName || 'Cliente';
+    const deliveryText = quote.deliveryMode === 'retirada' ? 'Retirada pelo cliente' : 'Entregar conforme combinado';
+    const observations = elements.notes.value.trim();
+
+    const message = [
+        'KD Embalagens',
+        'Pedido para producao',
+        `Cliente final: ${customerName}`,
+        '',
+        'ITENS',
+        ...quote.items.map((item, index) => `${index + 1}. ${item.modelKey} | ${item.quantity} un`),
+        '',
+        `Entrega: ${deliveryText}`,
+        observations ? `Observacoes: ${observations}` : '',
+        '',
+        'Produzir conforme pedido acima.'
+    ].filter(Boolean).join('\n');
+
+    openWhatsApp(supplierPhone, message);
 }
 
 function sendChargeWhatsapp() {
@@ -1025,6 +1056,7 @@ elements.generateQuote.addEventListener('click', () => {
 
 elements.saveRecord.addEventListener('click', saveRecord);
 elements.sendQuoteWhatsapp.addEventListener('click', sendCurrentQuoteWhatsapp);
+elements.sendSupplierWhatsapp.addEventListener('click', sendSupplierWhatsapp);
 elements.downloadQuotePdf.addEventListener('click', downloadQuotePdf);
 elements.sendChargeWhatsapp.addEventListener('click', sendChargeWhatsapp);
 elements.generateReceipt.addEventListener('click', generateReceipt);
