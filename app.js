@@ -85,6 +85,7 @@ const elements = {
     deliveryMode: document.getElementById('deliveryMode'),
     freightValue: document.getElementById('freightValue'),
     freeFreightManaus: document.getElementById('freeFreightManaus'),
+    hasExistingScreen: document.getElementById('hasExistingScreen'),
     addItem: document.getElementById('addItem'),
     clearItems: document.getElementById('clearItems'),
     generateQuote: document.getElementById('generateQuote'),
@@ -276,7 +277,8 @@ function buildQuote() {
     const totalBoxQuantity = items
         .filter((item) => item.categoryKey !== 'sacolas')
         .reduce((sum, item) => sum + item.quantity, 0);
-    const screenFee = hasBoxes && totalBoxQuantity < 250 ? SCREEN_FEE : 0;
+    const hasExistingScreen = elements.hasExistingScreen.checked;
+    const screenFee = hasBoxes && totalBoxQuantity < 250 && !hasExistingScreen ? SCREEN_FEE : 0;
     const deliveryMode = elements.deliveryMode.value;
     const freeFreightManaus = elements.freeFreightManaus.checked;
     const manualFreight = Number(elements.freightValue.value) || 0;
@@ -309,6 +311,7 @@ function buildQuote() {
         customerPhone: normalizePhone(elements.customerPhone.value),
         deliveryMode,
         freeFreightManaus,
+        hasExistingScreen,
         freight,
         total,
         depositAmount: Number((total / 2).toFixed(2)),
@@ -515,6 +518,7 @@ function clearForm() {
     elements.quantity.value = '';
     elements.freightValue.value = '';
     elements.freeFreightManaus.checked = false;
+    elements.hasExistingScreen.checked = false;
     elements.supplierCost.value = '';
     elements.autoSupplierCost.value = '';
     elements.receivedAmount.value = '';
@@ -547,6 +551,7 @@ function loadRecord(id) {
     elements.deliveryMode.value = record.quote.deliveryMode;
     elements.freightValue.value = record.quote.freight || '';
     elements.freeFreightManaus.checked = Boolean(record.quote.freeFreightManaus);
+    elements.hasExistingScreen.checked = Boolean(record.quote.hasExistingScreen);
     elements.supplierCost.value = record.supplierCost;
     elements.autoSupplierCost.value = money(record.autoSupplierCost);
     elements.receivedAmount.value = record.receivedAmount || '';
@@ -721,6 +726,7 @@ elements.supplierPaid.addEventListener('change', () => {
 });
 elements.freightValue.addEventListener('input', refreshQuotePreview);
 elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
+elements.hasExistingScreen.addEventListener('change', refreshQuotePreview);
 elements.customerName.addEventListener('input', refreshQuotePreview);
 elements.quantity.addEventListener('input', refreshQuotePreview);
 elements.model.addEventListener('change', refreshQuotePreview);
