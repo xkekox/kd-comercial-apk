@@ -157,9 +157,13 @@
                         Valor recebido
                         <input id="receivedAmount" type="number" min="0" step="0.01" placeholder="210.00">
                     </label>
-                    <label class="checkbox-line full">
-                        <input id="customerPaidDeposit" type="checkbox">
-                        Cliente ja pagou 50% de entrada
+                    <label>
+                        Pagamento do cliente
+                        <select id="customerPaymentStatus">
+                            <option value="nenhum">Nao pagou ainda</option>
+                            <option value="50">Pagou 50%</option>
+                            <option value="100">Pagou 100%</option>
+                        </select>
                     </label>
                     <label>
                         Valor repassado fornecedor
