@@ -490,18 +490,6 @@ function renderRecords() {
             <button type="button" data-delete-record="${record.id}">Apagar</button>
         </div>
     `).join('');
-
-    elements.recordsList.querySelectorAll('[data-edit-record]').forEach((button) => {
-        button.addEventListener('click', () => loadRecord(button.dataset.editRecord));
-    });
-    elements.recordsList.querySelectorAll('[data-delete-record]').forEach((button) => {
-        button.addEventListener('click', () => {
-            state.records = state.records.filter((item) => item.id !== button.dataset.deleteRecord);
-            persistRecords();
-            renderRecords();
-            renderDashboard();
-        });
-    });
 }
 
 function renderDashboard() {
@@ -647,6 +635,7 @@ function loadRecord(id) {
 
     state.editingId = id;
     switchTab('quote');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     elements.editingBanner.classList.remove('hidden');
     elements.editingBanner.textContent = `Editando ${record.customerName}`;
     elements.cancelEditing.classList.remove('hidden');
@@ -1085,6 +1074,22 @@ function switchTab(target) {
 
 elements.tabs.forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tabTarget));
+});
+
+elements.recordsList.addEventListener('click', (event) => {
+    const editButton = event.target.closest('[data-edit-record]');
+    if (editButton) {
+        loadRecord(editButton.dataset.editRecord);
+        return;
+    }
+
+    const deleteButton = event.target.closest('[data-delete-record]');
+    if (deleteButton) {
+        state.records = state.records.filter((item) => item.id !== deleteButton.dataset.deleteRecord);
+        persistRecords();
+        renderRecords();
+        renderDashboard();
+    }
 });
 
 elements.category.addEventListener('change', () => {
