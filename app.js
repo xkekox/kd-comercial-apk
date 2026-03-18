@@ -70,7 +70,9 @@ const state = {
     quoteItems: [],
     records: loadRecords(),
     lastQuote: null,
-    editingId: null
+    editingId: null,
+    recordSearch: '',
+    recordStatusFilter: 'todos'
 };
 
 const elements = {
@@ -95,6 +97,7 @@ const elements = {
     receivedAmount: document.getElementById('receivedAmount'),
     repassedAmount: document.getElementById('repassedAmount'),
     paymentMethod: document.getElementById('paymentMethod'),
+    pixKey: document.getElementById('pixKey'),
     leadSource: document.getElementById('leadSource'),
     supplierName: document.getElementById('supplierName'),
     status: document.getElementById('status'),
@@ -104,10 +107,14 @@ const elements = {
     saveRecord: document.getElementById('saveRecord'),
     sendQuoteWhatsapp: document.getElementById('sendQuoteWhatsapp'),
     sendChargeWhatsapp: document.getElementById('sendChargeWhatsapp'),
+    generateReceipt: document.getElementById('generateReceipt'),
     duplicateQuote: document.getElementById('duplicateQuote'),
     cancelEditing: document.getElementById('cancelEditing'),
     quoteOutput: document.getElementById('quoteOutput'),
+    receiptOutput: document.getElementById('receiptOutput'),
     recordsList: document.getElementById('recordsList'),
+    recordSearch: document.getElementById('recordSearch'),
+    recordStatusFilter: document.getElementById('recordStatusFilter'),
     importJson: document.getElementById('importJson'),
     importJsonFile: document.getElementById('importJsonFile'),
     exportJson: document.getElementById('exportJson'),
@@ -121,6 +128,7 @@ const elements = {
     metricFollowUp: document.getElementById('metricFollowUp'),
     topProducts: document.getElementById('topProducts'),
     customerBalances: document.getElementById('customerBalances'),
+    topCustomers: document.getElementById('topCustomers'),
     editingBanner: document.getElementById('editingBanner')
 };
 
@@ -286,12 +294,22 @@ function renderRecords() {
         return;
     }
 
-    const sorted = [...state.records].sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+    const filtered = state.records.filter((record) => {
+        const matchSearch = !state.recordSearch || record.customerName.toLowerCase().includes(state.recordSearch);
+        const matchStatus = state.recordStatusFilter === 'todos' || record.status === state.recordStatusFilter;
+        return matchSearch && matchStatus;
+    });
+    const sorted = [...filtered].sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)));
+    if (!sorted.length) {
+        elements.recordsList.innerHTML = '<div class="item"><strong>Nenhum resultado</strong><div class="meta">Ajuste a busca ou o filtro de status.</div></div>';
+        return;
+    }
     elements.recordsList.innerHTML = sorted.map((record) => `
         <div class="item">
             <strong>${record.customerName}</strong>
             <div class="meta">${record.status} | Venda ${money(record.quote.total)} | Lucro ${money(record.profit)}</div>
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
+            <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
             <button type="button" data-edit-record="${record.id}">Editar</button>
             <button type="button" data-delete-record="${record.id}">Apagar</button>
         </div>
@@ -353,6 +371,21 @@ function renderDashboard() {
     elements.customerBalances.innerHTML = balances.length
         ? balances.map((item) => `<div class="item"><strong>${item.customerName}</strong><div class="meta">Receber ${money(item.customerPendingAmount)} | Status ${item.status}</div></div>`).join('')
         : '<div class="item"><strong>Sem cobranca pendente</strong><div class="meta">Os saldos de clientes aparecem aqui.</div></div>';
+
+    const customerMap = {};
+    state.records.forEach((record) => {
+        if (!customerMap[record.customerName]) {
+            customerMap[record.customerName] = { orders: 0, revenue: 0 };
+        }
+        customerMap[record.customerName].orders += 1;
+        customerMap[record.customerName].revenue += record.quote.total;
+    });
+    const topCustomers = Object.entries(customerMap)
+        .sort((a, b) => b[1].revenue - a[1].revenue)
+        .slice(0, 6);
+    elements.topCustomers.innerHTML = topCustomers.length
+        ? topCustomers.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">${stats.orders} pedidos | ${money(stats.revenue)}</div></div>`).join('')
+        : '<div class="item"><strong>Sem clientes ainda</strong><div class="meta">Quando salvar pedidos, o ranking aparece aqui.</div></div>';
 }
 
 function resetEditing() {
@@ -375,11 +408,13 @@ function clearForm() {
     elements.autoSupplierCost.value = '';
     elements.receivedAmount.value = '';
     elements.repassedAmount.value = '';
+    elements.pixKey.value = '';
     elements.supplierName.value = '';
     elements.notes.value = '';
     elements.nextFollowUpAt.value = '';
     elements.lastContactAt.value = '';
     elements.quoteOutput.textContent = '';
+    elements.receiptOutput.textContent = '';
     state.lastQuote = null;
     state.quoteItems = [];
     renderItems();
@@ -405,6 +440,7 @@ function loadRecord(id) {
     elements.receivedAmount.value = record.receivedAmount || '';
     elements.repassedAmount.value = record.repassedAmount || '';
     elements.paymentMethod.value = record.paymentMethod;
+    elements.pixKey.value = record.pixKey || '';
     elements.leadSource.value = record.leadSource;
     elements.supplierName.value = record.supplierName || '';
     elements.status.value = record.status;
@@ -412,6 +448,7 @@ function loadRecord(id) {
     elements.lastContactAt.value = record.lastContactAt || '';
     elements.notes.value = record.notes || '';
     elements.quoteOutput.textContent = record.quote.text;
+    elements.receiptOutput.textContent = record.receiptText || '';
     state.lastQuote = record.quote;
     state.quoteItems = record.quote.items.map((item) => ({
         categoryKey: item.categoryKey,
@@ -434,6 +471,7 @@ function saveRecord() {
     const marginPercent = state.lastQuote.total > 0
         ? Number(((profit / state.lastQuote.total) * 100).toFixed(2))
         : 0;
+    const receiptText = generateReceiptText();
 
     const record = {
         id: state.editingId || `kd-mobile-${Date.now()}`,
@@ -454,7 +492,9 @@ function saveRecord() {
         notes: elements.notes.value.trim(),
         receivedAmount,
         paymentMethod: elements.paymentMethod.value,
+        pixKey: elements.pixKey.value.trim(),
         receiptNotes: '',
+        receiptText,
         leadSource: elements.leadSource.value,
         supplierName: elements.supplierName.value.trim(),
         repassedAmount,
@@ -514,9 +554,30 @@ function sendChargeWhatsapp() {
         `Passando para lembrar do saldo em aberto do seu pedido na KD Embalagens.`,
         `Valor pendente: ${money(pending)}`,
         '',
-        'Se quiser, ja posso te passar a chave Pix e finalizar isso agora.'
+        elements.pixKey.value.trim() ? `Chave Pix: ${elements.pixKey.value.trim()}` : 'Se quiser, ja posso te passar a chave Pix e finalizar isso agora.'
     ].join('\n');
     openWhatsApp(elements.customerPhone.value || quote.customerPhone, message);
+}
+
+function generateReceiptText() {
+    const quote = state.lastQuote;
+    if (!quote) return '';
+    const receivedAmount = Number(elements.receivedAmount.value) || 0;
+    if (receivedAmount <= 0) return '';
+    return [
+        'KD Embalagens',
+        'Recibo de pagamento',
+        `Cliente: ${quote.customerName}`,
+        `Valor recebido: ${money(receivedAmount)}`,
+        `Forma de pagamento: ${elements.paymentMethod.value}`,
+        `Referente ao pedido: ${quote.items.map((item) => item.modelKey).join(', ')}`,
+        `Data: ${new Date().toLocaleDateString('pt-BR')}`
+    ].join('\n');
+}
+
+function generateReceipt() {
+    const text = generateReceiptText();
+    elements.receiptOutput.textContent = text || 'Preencha valor recebido para gerar o recibo.';
 }
 
 function switchTab(target) {
@@ -568,6 +629,7 @@ elements.generateQuote.addEventListener('click', () => {
 elements.saveRecord.addEventListener('click', saveRecord);
 elements.sendQuoteWhatsapp.addEventListener('click', sendCurrentQuoteWhatsapp);
 elements.sendChargeWhatsapp.addEventListener('click', sendChargeWhatsapp);
+elements.generateReceipt.addEventListener('click', generateReceipt);
 elements.importJson.addEventListener('click', () => elements.importJsonFile.click());
 elements.importJsonFile.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
@@ -576,6 +638,14 @@ elements.importJsonFile.addEventListener('change', async (event) => {
     event.target.value = '';
 });
 elements.exportJson.addEventListener('click', exportJson);
+elements.recordSearch.addEventListener('input', (event) => {
+    state.recordSearch = event.target.value.trim().toLowerCase();
+    renderRecords();
+});
+elements.recordStatusFilter.addEventListener('change', (event) => {
+    state.recordStatusFilter = event.target.value;
+    renderRecords();
+});
 elements.cancelEditing.addEventListener('click', () => {
     resetEditing();
     clearForm();
