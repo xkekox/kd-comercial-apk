@@ -85,6 +85,7 @@ const elements = {
     deliveryMode: document.getElementById('deliveryMode'),
     freightValue: document.getElementById('freightValue'),
     freeFreightManaus: document.getElementById('freeFreightManaus'),
+    chargeScreenFee: document.getElementById('chargeScreenFee'),
     hasExistingScreen: document.getElementById('hasExistingScreen'),
     addItem: document.getElementById('addItem'),
     clearItems: document.getElementById('clearItems'),
@@ -278,7 +279,8 @@ function buildQuote() {
         .filter((item) => item.categoryKey !== 'sacolas')
         .reduce((sum, item) => sum + item.quantity, 0);
     const hasExistingScreen = elements.hasExistingScreen.checked;
-    const shouldChargeScreenFee = hasBoxes && totalBoxQuantity < 250 && !hasExistingScreen;
+    const chargeScreenFee = elements.chargeScreenFee.checked;
+    const shouldChargeScreenFee = hasBoxes && totalBoxQuantity < 250 && chargeScreenFee && !hasExistingScreen;
     const screenFee = shouldChargeScreenFee ? SCREEN_FEE : 0;
     const deliveryMode = elements.deliveryMode.value;
     const freeFreightManaus = elements.freeFreightManaus.checked;
@@ -321,6 +323,7 @@ function buildQuote() {
         customerPhone: normalizePhone(elements.customerPhone.value),
         deliveryMode,
         freeFreightManaus,
+        chargeScreenFee,
         hasExistingScreen,
         freight,
         total,
@@ -346,6 +349,16 @@ function syncDeliveryModeUI() {
         elements.freightValue.disabled = true;
     } else {
         elements.freightValue.disabled = false;
+    }
+}
+
+function syncScreenFeeUI() {
+    const hasExistingScreen = elements.hasExistingScreen.checked;
+    if (hasExistingScreen) {
+        elements.chargeScreenFee.checked = false;
+        elements.chargeScreenFee.disabled = true;
+    } else {
+        elements.chargeScreenFee.disabled = false;
     }
 }
 
@@ -528,6 +541,7 @@ function clearForm() {
     elements.quantity.value = '';
     elements.freightValue.value = '';
     elements.freeFreightManaus.checked = false;
+    elements.chargeScreenFee.checked = false;
     elements.hasExistingScreen.checked = false;
     elements.supplierCost.value = '';
     elements.autoSupplierCost.value = '';
@@ -543,6 +557,7 @@ function clearForm() {
     elements.receiptOutput.textContent = '';
     state.lastQuote = null;
     state.quoteItems = [];
+    syncScreenFeeUI();
     renderItems();
 }
 
@@ -561,7 +576,9 @@ function loadRecord(id) {
     elements.deliveryMode.value = record.quote.deliveryMode;
     elements.freightValue.value = record.quote.freight || '';
     elements.freeFreightManaus.checked = Boolean(record.quote.freeFreightManaus);
+    elements.chargeScreenFee.checked = Boolean(record.quote.chargeScreenFee);
     elements.hasExistingScreen.checked = Boolean(record.quote.hasExistingScreen);
+    syncScreenFeeUI();
     elements.supplierCost.value = record.supplierCost;
     elements.autoSupplierCost.value = money(record.autoSupplierCost);
     elements.receivedAmount.value = record.receivedAmount || '';
@@ -736,7 +753,11 @@ elements.supplierPaid.addEventListener('change', () => {
 });
 elements.freightValue.addEventListener('input', refreshQuotePreview);
 elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
-elements.hasExistingScreen.addEventListener('change', refreshQuotePreview);
+elements.chargeScreenFee.addEventListener('change', refreshQuotePreview);
+elements.hasExistingScreen.addEventListener('change', () => {
+    syncScreenFeeUI();
+    refreshQuotePreview();
+});
 elements.customerName.addEventListener('input', refreshQuotePreview);
 elements.quantity.addEventListener('input', refreshQuotePreview);
 elements.model.addEventListener('change', refreshQuotePreview);
@@ -813,6 +834,7 @@ elements.duplicateQuote.addEventListener('click', async () => {
 populateCategories();
 persistRecords();
 syncDeliveryModeUI();
+syncScreenFeeUI();
 renderItems();
 renderRecords();
 renderDashboard();
