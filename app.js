@@ -126,9 +126,17 @@ const elements = {
     metricAverage: document.getElementById('metricAverage'),
     metricMargin: document.getElementById('metricMargin'),
     metricFollowUp: document.getElementById('metricFollowUp'),
+    metricTodayRevenue: document.getElementById('metricTodayRevenue'),
+    metricTodayProfit: document.getElementById('metricTodayProfit'),
+    metricMonthRevenue: document.getElementById('metricMonthRevenue'),
+    metricMonthProfit: document.getElementById('metricMonthProfit'),
     topProducts: document.getElementById('topProducts'),
+    profitByProduct: document.getElementById('profitByProduct'),
     customerBalances: document.getElementById('customerBalances'),
     topCustomers: document.getElementById('topCustomers'),
+    profitByCustomer: document.getElementById('profitByCustomer'),
+    recurringCustomers: document.getElementById('recurringCustomers'),
+    closingSummary: document.getElementById('closingSummary'),
     editingBanner: document.getElementById('editingBanner')
 };
 
@@ -338,7 +346,14 @@ function renderDashboard() {
         ? state.records.reduce((sum, item) => sum + item.marginPercent, 0) / state.records.length
         : 0;
     const today = new Date().toISOString().slice(0, 10);
+    const currentMonth = today.slice(0, 7);
     const followUps = state.records.filter((item) => item.nextFollowUpAt && item.nextFollowUpAt <= today);
+    const todayRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 10) === today);
+    const monthRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 7) === currentMonth);
+    const todayRevenue = todayRecords.reduce((sum, item) => sum + item.quote.total, 0);
+    const todayProfit = todayRecords.reduce((sum, item) => sum + item.profit, 0);
+    const monthRevenue = monthRecords.reduce((sum, item) => sum + item.quote.total, 0);
+    const monthProfit = monthRecords.reduce((sum, item) => sum + item.profit, 0);
 
     elements.metricRevenue.textContent = money(revenue);
     elements.metricProfit.textContent = money(profit);
@@ -348,21 +363,31 @@ function renderDashboard() {
     elements.metricAverage.textContent = money(average);
     elements.metricMargin.textContent = `${margin.toFixed(2)}%`;
     elements.metricFollowUp.textContent = String(followUps.length);
+    elements.metricTodayRevenue.textContent = money(todayRevenue);
+    elements.metricTodayProfit.textContent = money(todayProfit);
+    elements.metricMonthRevenue.textContent = money(monthRevenue);
+    elements.metricMonthProfit.textContent = money(monthProfit);
 
     const productMap = {};
     state.records.forEach((record) => {
         record.quote.items.forEach((item) => {
             if (!productMap[item.modelKey]) {
-                productMap[item.modelKey] = { quantity: 0, revenue: 0 };
+                productMap[item.modelKey] = { quantity: 0, revenue: 0, supplierCost: 0, profit: 0 };
             }
             productMap[item.modelKey].quantity += item.quantity;
             productMap[item.modelKey].revenue += item.subtotal;
+            productMap[item.modelKey].supplierCost += item.supplierSubtotal || 0;
+            productMap[item.modelKey].profit += (item.subtotal - (item.supplierSubtotal || 0));
         });
     });
     const topProducts = Object.entries(productMap).sort((a, b) => b[1].revenue - a[1].revenue).slice(0, 6);
     elements.topProducts.innerHTML = topProducts.length
         ? topProducts.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">${stats.quantity} un | ${money(stats.revenue)}</div></div>`).join('')
         : '<div class="item"><strong>Sem produtos</strong><div class="meta">Salve registros para gerar ranking.</div></div>';
+    const topProfitProducts = Object.entries(productMap).sort((a, b) => b[1].profit - a[1].profit).slice(0, 6);
+    elements.profitByProduct.innerHTML = topProfitProducts.length
+        ? topProfitProducts.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">Lucro ${money(stats.profit)} | Receita ${money(stats.revenue)}</div></div>`).join('')
+        : '<div class="item"><strong>Sem lucro por produto</strong><div class="meta">Quando salvar pedidos, este ranking aparece aqui.</div></div>';
 
     const balances = state.records
         .filter((item) => item.customerPendingAmount > 0)
@@ -375,10 +400,11 @@ function renderDashboard() {
     const customerMap = {};
     state.records.forEach((record) => {
         if (!customerMap[record.customerName]) {
-            customerMap[record.customerName] = { orders: 0, revenue: 0 };
+            customerMap[record.customerName] = { orders: 0, revenue: 0, profit: 0 };
         }
         customerMap[record.customerName].orders += 1;
         customerMap[record.customerName].revenue += record.quote.total;
+        customerMap[record.customerName].profit += record.profit;
     });
     const topCustomers = Object.entries(customerMap)
         .sort((a, b) => b[1].revenue - a[1].revenue)
@@ -386,6 +412,27 @@ function renderDashboard() {
     elements.topCustomers.innerHTML = topCustomers.length
         ? topCustomers.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">${stats.orders} pedidos | ${money(stats.revenue)}</div></div>`).join('')
         : '<div class="item"><strong>Sem clientes ainda</strong><div class="meta">Quando salvar pedidos, o ranking aparece aqui.</div></div>';
+    const topProfitCustomers = Object.entries(customerMap)
+        .sort((a, b) => b[1].profit - a[1].profit)
+        .slice(0, 6);
+    elements.profitByCustomer.innerHTML = topProfitCustomers.length
+        ? topProfitCustomers.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">Lucro ${money(stats.profit)} | ${stats.orders} pedidos</div></div>`).join('')
+        : '<div class="item"><strong>Sem lucro por cliente</strong><div class="meta">Quando salvar pedidos, este ranking aparece aqui.</div></div>';
+    const recurring = Object.entries(customerMap)
+        .filter(([, stats]) => stats.orders > 1)
+        .sort((a, b) => b[1].orders - a[1].orders)
+        .slice(0, 8);
+    elements.recurringCustomers.innerHTML = recurring.length
+        ? recurring.map(([name, stats]) => `<div class="item"><strong>${name}</strong><div class="meta">${stats.orders} pedidos | ${money(stats.revenue)}</div></div>`).join('')
+        : '<div class="item"><strong>Sem recorrencia ainda</strong><div class="meta">Clientes com mais de um pedido aparecem aqui.</div></div>';
+
+    const closingLines = [
+        `<div class="item"><strong>Fechamento do dia</strong><div class="meta">Vendas ${money(todayRevenue)} | Lucro ${money(todayProfit)} | Pedidos ${todayRecords.length}</div></div>`,
+        `<div class="item"><strong>Fechamento do mes</strong><div class="meta">Vendas ${money(monthRevenue)} | Lucro ${money(monthProfit)} | Pedidos ${monthRecords.length}</div></div>`,
+        `<div class="item"><strong>Caixa a receber</strong><div class="meta">${money(customerPending)} em aberto dos clientes</div></div>`,
+        `<div class="item"><strong>Repasse pendente</strong><div class="meta">${money(supplierPending)} ainda falta pagar ao fornecedor</div></div>`
+    ];
+    elements.closingSummary.innerHTML = closingLines.join('');
 }
 
 function resetEditing() {
