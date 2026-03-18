@@ -106,8 +106,10 @@ const elements = {
     notes: document.getElementById('notes'),
     saveRecord: document.getElementById('saveRecord'),
     sendQuoteWhatsapp: document.getElementById('sendQuoteWhatsapp'),
+    downloadQuotePdf: document.getElementById('downloadQuotePdf'),
     sendChargeWhatsapp: document.getElementById('sendChargeWhatsapp'),
     generateReceipt: document.getElementById('generateReceipt'),
+    downloadReceiptPdf: document.getElementById('downloadReceiptPdf'),
     duplicateQuote: document.getElementById('duplicateQuote'),
     cancelEditing: document.getElementById('cancelEditing'),
     quoteOutput: document.getElementById('quoteOutput'),
@@ -728,6 +730,205 @@ function generateReceipt() {
     elements.receiptOutput.textContent = text || 'Preencha valor recebido para gerar o recibo.';
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function formatDateBr(value = new Date()) {
+    const date = value instanceof Date ? value : new Date(value);
+    return date.toLocaleDateString('pt-BR');
+}
+
+function openPdfDocument(title, fileName, bodyHtml) {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const doc = `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111827; margin: 0; background: #f3f4f6; }
+    .sheet { max-width: 820px; margin: 0 auto; background: #ffffff; min-height: 100vh; padding: 32px; box-sizing: border-box; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+    .brand { font-size: 28px; font-weight: 800; letter-spacing: 0.04em; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .title { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; margin-top: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+    .value { font-size: 15px; font-weight: 600; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #e5e7eb; font-size: 14px; }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+    .totals { margin-top: 18px; display: grid; gap: 10px; }
+    .total-line { display: flex; justify-content: space-between; font-size: 15px; }
+    .grand-total { font-size: 20px; font-weight: 800; border-top: 2px solid #111827; padding-top: 12px; margin-top: 6px; }
+    .note { margin-top: 18px; white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+    @media print {
+      body { background: #fff; }
+      .sheet { max-width: none; min-height: auto; padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    ${bodyHtml}
+  </div>
+  <script>
+    document.title = ${JSON.stringify(fileName)};
+    window.onload = function () {
+      setTimeout(function () {
+        window.print();
+      }, 250);
+    };
+  </script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(doc);
+    printWindow.document.close();
+}
+
+function downloadQuotePdf() {
+    const quote = state.lastQuote;
+    if (!quote) return;
+
+    const rows = quote.items.map((item) => `
+        <tr>
+            <td>${escapeHtml(item.modelKey)}</td>
+            <td>${item.quantity} un</td>
+            <td>${money(item.unitPrice)}</td>
+            <td>${money(item.subtotal)}</td>
+        </tr>
+    `).join('');
+
+    const bodyHtml = `
+        <div class="topbar">
+            <div>
+                <div class="brand">KD EMBALAGENS</div>
+                <div class="muted">Embalagens personalizadas em Manaus</div>
+            </div>
+            <div>
+                <div class="title">Orcamento</div>
+                <div class="muted">Data: ${formatDateBr()}</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="grid">
+                <div>
+                    <div class="label">Cliente</div>
+                    <div class="value">${escapeHtml(quote.customerName)}</div>
+                </div>
+                <div>
+                    <div class="label">WhatsApp</div>
+                    <div class="value">${escapeHtml(quote.customerPhone || '-')}</div>
+                </div>
+                <div>
+                    <div class="label">Entrega</div>
+                    <div class="value">${quote.deliveryMode === 'retirada' ? 'Retirada pelo cliente' : 'Entrega'}</div>
+                </div>
+                <div>
+                    <div class="label">Entrada</div>
+                    <div class="value">${money(quote.depositAmount)}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Quantidade</th>
+                        <th>Valor unitario</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+
+            <div class="totals">
+                <div class="total-line"><span>Subtotal</span><strong>${money(quote.items.reduce((sum, item) => sum + item.subtotal, 0))}</strong></div>
+                <div class="total-line"><span>Tela/logo</span><strong>${escapeHtml((quote.text.match(/Tela: (.+)/)?.[1]) || 'nao aplicada')}</strong></div>
+                <div class="total-line"><span>Frete</span><strong>${escapeHtml((quote.text.match(/Frete: (.+)/)?.[1]) || '-')}</strong></div>
+                <div class="total-line grand-total"><span>Total</span><strong>${money(quote.total)}</strong></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="label">Observacao</div>
+            <div class="note">Orcamento gerado pela KD Embalagens. Para confirmar o pedido, valide os itens, o valor e a entrada de 50%.</div>
+        </div>
+    `;
+
+    openPdfDocument(
+        'Orcamento KD Embalagens',
+        `orcamento-kd-${quote.customerName.toLowerCase().replaceAll(' ', '-')}.pdf`,
+        bodyHtml
+    );
+}
+
+function downloadReceiptPdf() {
+    const quote = state.lastQuote;
+    const receivedAmount = Number(elements.receivedAmount.value) || 0;
+    if (!quote || receivedAmount <= 0) return;
+
+    const bodyHtml = `
+        <div class="topbar">
+            <div>
+                <div class="brand">KD EMBALAGENS</div>
+                <div class="muted">Recibo padronizado</div>
+            </div>
+            <div>
+                <div class="title">Recibo</div>
+                <div class="muted">Data: ${formatDateBr()}</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="grid">
+                <div>
+                    <div class="label">Cliente</div>
+                    <div class="value">${escapeHtml(quote.customerName)}</div>
+                </div>
+                <div>
+                    <div class="label">Valor recebido</div>
+                    <div class="value">${money(receivedAmount)}</div>
+                </div>
+                <div>
+                    <div class="label">Forma de pagamento</div>
+                    <div class="value">${escapeHtml(elements.paymentMethod.value)}</div>
+                </div>
+                <div>
+                    <div class="label">Pedido</div>
+                    <div class="value">${escapeHtml(quote.items.map((item) => item.modelKey).join(', '))}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="label">Declaracao</div>
+            <div class="note">Recebemos de ${escapeHtml(quote.customerName)} o valor de ${money(receivedAmount)}, referente ao pedido descrito acima.</div>
+        </div>
+    `;
+
+    openPdfDocument(
+        'Recibo KD Embalagens',
+        `recibo-kd-${quote.customerName.toLowerCase().replaceAll(' ', '-')}.pdf`,
+        bodyHtml
+    );
+}
+
 function switchTab(target) {
     elements.tabs.forEach((button) => button.classList.toggle('active', button.dataset.tabTarget === target));
     elements.panels.forEach((panel) => panel.classList.toggle('active', panel.dataset.tab === target));
@@ -804,8 +1005,10 @@ elements.generateQuote.addEventListener('click', () => {
 
 elements.saveRecord.addEventListener('click', saveRecord);
 elements.sendQuoteWhatsapp.addEventListener('click', sendCurrentQuoteWhatsapp);
+elements.downloadQuotePdf.addEventListener('click', downloadQuotePdf);
 elements.sendChargeWhatsapp.addEventListener('click', sendChargeWhatsapp);
 elements.generateReceipt.addEventListener('click', generateReceipt);
+elements.downloadReceiptPdf.addEventListener('click', downloadReceiptPdf);
 elements.importJson.addEventListener('click', () => elements.importJsonFile.click());
 elements.importJsonFile.addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
