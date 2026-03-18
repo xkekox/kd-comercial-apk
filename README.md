@@ -1,0 +1,1 @@
+# KD Comercial APK`n`nRepositorio de distribuicao do APK da KD Comercial.`n
