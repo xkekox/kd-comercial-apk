@@ -527,8 +527,8 @@ function renderRecords() {
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
             <div class="item-actions">
                 <button type="button" data-edit-record="${record.id}">Editar</button>
-                <button type="button" data-mark-50="${record.id}">50%</button>
-                <button type="button" data-mark-100="${record.id}">100%</button>
+                <button type="button" data-mark-50="${record.id}">Receber 50%</button>
+                <button type="button" data-mark-100="${record.id}">Receber 100%</button>
                 <button type="button" data-status-production="${record.id}">Producao</button>
                 <button type="button" data-status-ready="${record.id}">Pronto</button>
                 <button type="button" data-status-delivered="${record.id}">Entregue</button>
@@ -536,6 +536,55 @@ function renderRecords() {
             </div>
         </div>
     `).join('');
+
+    elements.recordsList.querySelectorAll('[data-mark-50]').forEach((button) => {
+        button.onclick = () => {
+            const record = state.records.find((item) => item.id === button.dataset.mark50);
+            if (!record) return;
+            applyQuickUpdate(button.dataset.mark50, {
+                customerPaymentStatus: '50',
+                receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
+            });
+        };
+    });
+
+    elements.recordsList.querySelectorAll('[data-mark-100]').forEach((button) => {
+        button.onclick = () => {
+            const record = state.records.find((item) => item.id === button.dataset.mark100);
+            if (!record) return;
+            applyQuickUpdate(button.dataset.mark100, {
+                customerPaymentStatus: '100',
+                receivedAmount: Number(record.quote?.total || 0)
+            });
+        };
+    });
+
+    elements.recordsList.querySelectorAll('[data-status-production]').forEach((button) => {
+        button.onclick = () => applyQuickUpdate(button.dataset.statusProduction, {
+            status: 'em-producao'
+        });
+    });
+
+    elements.recordsList.querySelectorAll('[data-status-ready]').forEach((button) => {
+        button.onclick = () => applyQuickUpdate(button.dataset.statusReady, {
+            status: 'pronto-entregar'
+        });
+    });
+
+    elements.recordsList.querySelectorAll('[data-status-delivered]').forEach((button) => {
+        button.onclick = () => applyQuickUpdate(button.dataset.statusDelivered, {
+            status: 'entregue'
+        });
+    });
+
+    elements.recordsList.querySelectorAll('[data-delete-record]').forEach((button) => {
+        button.onclick = () => {
+            state.records = state.records.filter((item) => item.id !== button.dataset.deleteRecord);
+            persistRecords();
+            renderRecords();
+            renderDashboard();
+        };
+    });
 }
 
 function renderDashboard() {
@@ -1182,60 +1231,6 @@ elements.recordsList.addEventListener('click', (event) => {
     if (editButton) {
         loadRecord(editButton.dataset.editRecord);
         return;
-    }
-
-    const mark50Button = event.target.closest('[data-mark-50]');
-    if (mark50Button) {
-        const record = state.records.find((item) => item.id === mark50Button.dataset.mark50);
-        if (!record) return;
-        applyQuickUpdate(mark50Button.dataset.mark50, {
-            customerPaymentStatus: '50',
-            receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
-        });
-        return;
-    }
-
-    const mark100Button = event.target.closest('[data-mark-100]');
-    if (mark100Button) {
-        const record = state.records.find((item) => item.id === mark100Button.dataset.mark100);
-        if (!record) return;
-        applyQuickUpdate(mark100Button.dataset.mark100, {
-            customerPaymentStatus: '100',
-            receivedAmount: Number(record.quote?.total || 0)
-        });
-        return;
-    }
-
-    const productionButton = event.target.closest('[data-status-production]');
-    if (productionButton) {
-        applyQuickUpdate(productionButton.dataset.statusProduction, {
-            status: 'em-producao'
-        });
-        return;
-    }
-
-    const readyButton = event.target.closest('[data-status-ready]');
-    if (readyButton) {
-        applyQuickUpdate(readyButton.dataset.statusReady, {
-            status: 'pronto-entregar'
-        });
-        return;
-    }
-
-    const deliveredButton = event.target.closest('[data-status-delivered]');
-    if (deliveredButton) {
-        applyQuickUpdate(deliveredButton.dataset.statusDelivered, {
-            status: 'entregue'
-        });
-        return;
-    }
-
-    const deleteButton = event.target.closest('[data-delete-record]');
-    if (deleteButton) {
-        state.records = state.records.filter((item) => item.id !== deleteButton.dataset.deleteRecord);
-        persistRecords();
-        renderRecords();
-        renderDashboard();
     }
 });
 
