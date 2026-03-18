@@ -243,9 +243,18 @@ function applyQuickUpdate(recordId, updates) {
     const current = state.records.find((item) => item.id === recordId);
     if (!current) return;
 
+    const quoteTotal = Number(current.quote?.total || 0);
+    const nextReceivedAmount = updates.receivedAmount !== undefined
+        ? Number(updates.receivedAmount || 0)
+        : Number(current.receivedAmount || 0);
+    const nextSupplierCost = Number(current.supplierCost || current.autoSupplierCost || current.quote?.autoSupplierCost || 0);
+
     const next = recalculateRecord({
         ...current,
         ...updates,
+        receivedAmount: nextReceivedAmount,
+        customerPendingAmount: Number((quoteTotal - nextReceivedAmount).toFixed(2)),
+        supplierPendingAmount: Number((nextSupplierCost - Number(current.repassedAmount || 0)).toFixed(2)),
         updatedAt: new Date().toISOString()
     });
 
@@ -516,13 +525,15 @@ function renderRecords() {
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
             <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
-            <button type="button" data-edit-record="${record.id}">Editar</button>
-            <button type="button" data-mark-50="${record.id}">50%</button>
-            <button type="button" data-mark-100="${record.id}">100%</button>
-            <button type="button" data-status-production="${record.id}">Em producao</button>
-            <button type="button" data-status-ready="${record.id}">Pronto</button>
-            <button type="button" data-status-delivered="${record.id}">Entregue</button>
-            <button type="button" data-delete-record="${record.id}">Apagar</button>
+            <div class="item-actions">
+                <button type="button" data-edit-record="${record.id}">Editar</button>
+                <button type="button" data-mark-50="${record.id}">50%</button>
+                <button type="button" data-mark-100="${record.id}">100%</button>
+                <button type="button" data-status-production="${record.id}">Producao</button>
+                <button type="button" data-status-ready="${record.id}">Pronto</button>
+                <button type="button" data-status-delivered="${record.id}">Entregue</button>
+                <button type="button" data-delete-record="${record.id}">Apagar</button>
+            </div>
         </div>
     `).join('');
 }
