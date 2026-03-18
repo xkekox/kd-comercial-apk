@@ -646,6 +646,7 @@ function loadRecord(id) {
     if (!record) return;
 
     state.editingId = id;
+    switchTab('quote');
     elements.editingBanner.classList.remove('hidden');
     elements.editingBanner.textContent = `Editando ${record.customerName}`;
     elements.cancelEditing.classList.remove('hidden');
@@ -685,6 +686,9 @@ function loadRecord(id) {
         customUnitPrice: item.hasCustomModel ? item.unitPrice : 0,
         quantity: item.quantity
     }));
+    populateModels();
+    syncDeliveryModeUI();
+    syncCustomerPaymentUI();
     renderItems();
 }
 
