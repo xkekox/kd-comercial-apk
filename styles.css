@@ -385,7 +385,7 @@ textarea:focus {
 
 .actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 10px;
     margin-top: 16px;
 }
@@ -485,6 +485,12 @@ textarea:focus {
     gap: 12px;
 }
 
+.section-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 720px) {
     .app-shell {
         padding: 14px 12px 34px;
@@ -516,5 +522,9 @@ textarea:focus {
 
     .card-head {
         flex-direction: column;
+    }
+
+    .section-actions {
+        width: 100%;
     }
 }
