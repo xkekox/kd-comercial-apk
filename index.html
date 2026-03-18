@@ -270,14 +270,43 @@
             <article class="card">
                 <div class="section-head">
                     <div>
+                        <p class="card-kicker">Nuvem</p>
+                        <h2>Sincronizacao online</h2>
+                        <p class="section-copy">Conecte Supabase para usar os mesmos registros no site e no APK.</p>
+                        <p id="cloudStatus" class="backup-status">Supabase nao configurado.</p>
+                    </div>
+                    <div class="section-actions">
+                        <button id="saveSupabaseConfig" type="button">Salvar conexao</button>
+                        <button id="testSupabaseConnection" type="button">Testar conexao</button>
+                        <button id="syncSupabaseNow" type="button">Sincronizar agora</button>
+                    </div>
+                </div>
+                <div class="grid filters-grid">
+                    <label class="full">
+                        URL do projeto Supabase
+                        <input id="supabaseUrl" type="url" placeholder="https://xxxx.supabase.co">
+                    </label>
+                    <label class="full">
+                        Chave anon
+                        <input id="supabaseAnonKey" type="text" placeholder="Cole a anon key do projeto">
+                    </label>
+                </div>
+            </article>
+
+            <article class="card">
+                <div class="section-head">
+                    <div>
                         <p class="card-kicker">Historico</p>
                         <h2>Registros salvos</h2>
                         <p class="section-copy">Edite, apague e acompanhe os pedidos gravados no aparelho.</p>
+                        <p id="storageNote" class="storage-note">Importante: o site e o APK guardam registros separadamente. Exporte do site e importe no APK para levar seu historico.</p>
+                        <p id="backupStatus" class="backup-status"></p>
                     </div>
                     <div class="section-actions">
                         <input id="importJsonFile" type="file" accept=".json,application/json" hidden>
                         <button id="importJson" type="button">Importar JSON</button>
                         <button id="exportJson" type="button">Exportar JSON</button>
+                        <button id="restoreBackup" type="button">Restaurar backup</button>
                     </div>
                 </div>
                 <div class="grid filters-grid">
