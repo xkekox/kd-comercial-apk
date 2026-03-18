@@ -70,6 +70,10 @@
                         <input id="customerName" type="text" placeholder="Ex.: Pizzaria Exemplo">
                     </label>
                     <label>
+                        WhatsApp cliente
+                        <input id="customerPhone" type="text" placeholder="5592999999999">
+                    </label>
+                    <label>
                         Linha
                         <select id="category"></select>
                     </label>
@@ -199,6 +203,8 @@
                 </div>
                 <div class="actions">
                     <button id="saveRecord" type="button">Salvar registro</button>
+                    <button id="sendQuoteWhatsapp" type="button">Mandar orcamento</button>
+                    <button id="sendChargeWhatsapp" type="button">Cobrar cliente</button>
                     <button id="duplicateQuote" type="button">Duplicar texto</button>
                     <button id="cancelEditing" type="button" class="secondary hidden">Cancelar edicao</button>
                 </div>
@@ -224,7 +230,11 @@
                         <h2>Registros salvos</h2>
                         <p class="section-copy">Edite, apague e acompanhe os pedidos gravados no aparelho.</p>
                     </div>
-                    <button id="exportJson" type="button">Exportar JSON</button>
+                    <div class="section-actions">
+                        <input id="importJsonFile" type="file" accept=".json,application/json" hidden>
+                        <button id="importJson" type="button">Importar JSON</button>
+                        <button id="exportJson" type="button">Exportar JSON</button>
+                    </div>
                 </div>
                 <div id="recordsList" class="list"></div>
             </article>
