@@ -40,10 +40,10 @@ const QUOTE_TABLE = {
 
 const SUPPLIER_COST_TABLE = {
     sacolas: {
-        'Sacola P': { 100: 1.12, 250: 1.06, 500: 1.01, 1000: 0.96 },
-        'Sacola M': { 100: 1.32, 250: 1.26, 500: 1.21, 1000: 1.16 },
-        'Sacola G': { 100: 1.36, 250: 1.30, 500: 1.25, 1000: 1.20 },
-        'Sacola GG': { 100: 1.40, 250: 1.34, 500: 1.29, 1000: 1.24 }
+        'Sacola P': { 100: 1.10, 250: 1.10, 500: 1.10, 1000: 1.10 },
+        'Sacola M': { 100: 1.30, 250: 1.30, 500: 1.30, 1000: 1.30 },
+        'Sacola G': { 100: 1.35, 250: 1.35, 500: 1.35, 1000: 1.35 },
+        'Sacola GG': { 100: 1.40, 250: 1.40, 500: 1.40, 1000: 1.40 }
     },
     salgados: {
         'Salgado PP': { 100: 1.19, 250: 1.14, 500: 1.08, 1000: 1.03 },
@@ -149,10 +149,47 @@ function money(value) {
 
 function loadRecords() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(recalculateRecord);
     } catch {
         return [];
     }
+}
+
+function recalculateRecord(record) {
+    if (!record?.quote?.items) return record;
+    const items = record.quote.items.map((item) => {
+        const supplierUnitCost = item.hasCustomModel
+            ? (item.supplierUnitCost || 0)
+            : (SUPPLIER_COST_TABLE[item.categoryKey]?.[item.modelKey]?.[item.tierBase] || item.supplierUnitCost || 0);
+        const supplierSubtotal = Number((supplierUnitCost * item.quantity).toFixed(2));
+        return {
+            ...item,
+            supplierUnitCost,
+            supplierSubtotal
+        };
+    });
+    const autoSupplierCost = Number(items.reduce((sum, item) => sum + item.supplierSubtotal, 0).toFixed(2));
+    const supplierCost = autoSupplierCost;
+    const profit = Number((record.quote.total - supplierCost).toFixed(2));
+    const marginPercent = record.quote.total > 0
+        ? Number(((profit / record.quote.total) * 100).toFixed(2))
+        : 0;
+    const receivedAmount = Number(record.receivedAmount) || 0;
+    const repassedAmount = Number(record.repassedAmount) || 0;
+    return {
+        ...record,
+        quote: {
+            ...record.quote,
+            items
+        },
+        autoSupplierCost,
+        supplierCost,
+        manualSupplierCost: supplierCost,
+        profit,
+        marginPercent,
+        customerPendingAmount: Number((record.quote.total - receivedAmount).toFixed(2)),
+        supplierPendingAmount: Number((supplierCost - repassedAmount).toFixed(2))
+    };
 }
 
 function normalizePhone(value) {
@@ -703,6 +740,7 @@ elements.duplicateQuote.addEventListener('click', async () => {
 });
 
 populateCategories();
+persistRecords();
 renderItems();
 renderRecords();
 renderDashboard();
