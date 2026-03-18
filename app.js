@@ -525,67 +525,57 @@ function renderRecords() {
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
             <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
+            <div class="record-inline-grid">
+                <label class="record-inline-field">
+                    Pagamento
+                    <select data-inline-payment="${record.id}">
+                        <option value="nenhum" ${record.customerPaymentStatus === 'nenhum' || !record.customerPaymentStatus ? 'selected' : ''}>Nao pago</option>
+                        <option value="50" ${record.customerPaymentStatus === '50' ? 'selected' : ''}>50%</option>
+                        <option value="100" ${record.customerPaymentStatus === '100' ? 'selected' : ''}>100%</option>
+                    </select>
+                </label>
+                <label class="record-inline-field">
+                    Status
+                    <select data-inline-status="${record.id}">
+                        <option value="orcamento" ${record.status === 'orcamento' ? 'selected' : ''}>Orcamento</option>
+                        <option value="pedido-fechado" ${record.status === 'pedido-fechado' ? 'selected' : ''}>Pedido fechado</option>
+                        <option value="em-producao" ${record.status === 'em-producao' ? 'selected' : ''}>Em producao</option>
+                        <option value="pronto-entregar" ${record.status === 'pronto-entregar' ? 'selected' : ''}>Pronto para entregar</option>
+                        <option value="entregue" ${record.status === 'entregue' ? 'selected' : ''}>Entregue</option>
+                    </select>
+                </label>
+            </div>
             <div class="item-actions">
                 <button type="button" data-edit-record="${record.id}">Editar</button>
-                <button type="button" data-mark-50="${record.id}">Receber 50%</button>
-                <button type="button" data-mark-100="${record.id}">Receber 100%</button>
-                <button type="button" data-status-production="${record.id}">Producao</button>
-                <button type="button" data-status-ready="${record.id}">Pronto</button>
-                <button type="button" data-status-delivered="${record.id}">Entregue</button>
                 <button type="button" data-delete-record="${record.id}">Apagar</button>
             </div>
         </div>
     `).join('');
 
-    elements.recordsList.querySelectorAll('[data-mark-50]').forEach((button) => {
-        button.onclick = (event) => {
-            event.preventDefault();
-            const recordId = button.getAttribute('data-mark-50');
+    elements.recordsList.querySelectorAll('[data-inline-payment]').forEach((select) => {
+        select.onchange = () => {
+            const recordId = select.getAttribute('data-inline-payment');
             const record = state.records.find((item) => item.id === recordId);
             if (!record) return;
+            const paymentValue = select.value;
+            let receivedAmount = 0;
+            if (paymentValue === '50') {
+                receivedAmount = record.quote?.depositAmount || Number(record.quote?.total || 0) / 2;
+            } else if (paymentValue === '100') {
+                receivedAmount = Number(record.quote?.total || 0);
+            }
             applyQuickUpdate(recordId, {
-                customerPaymentStatus: '50',
-                receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
+                customerPaymentStatus: paymentValue,
+                receivedAmount
             });
         };
     });
 
-    elements.recordsList.querySelectorAll('[data-mark-100]').forEach((button) => {
-        button.onclick = (event) => {
-            event.preventDefault();
-            const recordId = button.getAttribute('data-mark-100');
-            const record = state.records.find((item) => item.id === recordId);
-            if (!record) return;
+    elements.recordsList.querySelectorAll('[data-inline-status]').forEach((select) => {
+        select.onchange = () => {
+            const recordId = select.getAttribute('data-inline-status');
             applyQuickUpdate(recordId, {
-                customerPaymentStatus: '100',
-                receivedAmount: Number(record.quote?.total || 0)
-            });
-        };
-    });
-
-    elements.recordsList.querySelectorAll('[data-status-production]').forEach((button) => {
-        button.onclick = (event) => {
-            event.preventDefault();
-            applyQuickUpdate(button.getAttribute('data-status-production'), {
-            status: 'em-producao'
-            });
-        };
-    });
-
-    elements.recordsList.querySelectorAll('[data-status-ready]').forEach((button) => {
-        button.onclick = (event) => {
-            event.preventDefault();
-            applyQuickUpdate(button.getAttribute('data-status-ready'), {
-            status: 'pronto-entregar'
-            });
-        };
-    });
-
-    elements.recordsList.querySelectorAll('[data-status-delivered]').forEach((button) => {
-        button.onclick = (event) => {
-            event.preventDefault();
-            applyQuickUpdate(button.getAttribute('data-status-delivered'), {
-            status: 'entregue'
+                status: select.value
             });
         };
     });
