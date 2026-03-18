@@ -94,6 +94,7 @@ const elements = {
     supplierCost: document.getElementById('supplierCost'),
     autoSupplierCost: document.getElementById('autoSupplierCost'),
     receivedAmount: document.getElementById('receivedAmount'),
+    customerPaidDeposit: document.getElementById('customerPaidDeposit'),
     repassedAmount: document.getElementById('repassedAmount'),
     supplierPaid: document.getElementById('supplierPaid'),
     paymentMethod: document.getElementById('paymentMethod'),
@@ -366,6 +367,13 @@ function syncScreenFeeUI() {
     }
 }
 
+function syncDepositUI() {
+    if (!state.lastQuote) return;
+    if (elements.customerPaidDeposit.checked) {
+        elements.receivedAmount.value = state.lastQuote.depositAmount.toFixed(2);
+    }
+}
+
 function renderItems() {
     if (!state.quoteItems.length) {
         elements.items.innerHTML = '<div class="item"><strong>Nenhum item</strong><div class="meta">Adicione produtos para montar o pedido.</div></div>';
@@ -550,6 +558,7 @@ function clearForm() {
     elements.supplierCost.value = '';
     elements.autoSupplierCost.value = '';
     elements.receivedAmount.value = '';
+    elements.customerPaidDeposit.checked = false;
     elements.repassedAmount.value = '';
     elements.supplierPaid.checked = false;
     elements.pixKey.value = '';
@@ -587,6 +596,7 @@ function loadRecord(id) {
     elements.supplierCost.value = record.supplierCost;
     elements.autoSupplierCost.value = money(record.autoSupplierCost);
     elements.receivedAmount.value = record.receivedAmount || '';
+    elements.customerPaidDeposit.checked = Number(record.receivedAmount || 0) >= Number(record.depositAmount || 0) && Number(record.depositAmount || 0) > 0;
     elements.repassedAmount.value = record.repassedAmount || '';
     elements.supplierPaid.checked = Boolean(record.supplierPaid);
     elements.paymentMethod.value = record.paymentMethod;
@@ -1003,6 +1013,7 @@ elements.supplierPaid.addEventListener('change', () => {
         elements.repassedAmount.value = supplierCost.toFixed(2);
     }
 });
+elements.customerPaidDeposit.addEventListener('change', syncDepositUI);
 elements.freightValue.addEventListener('input', refreshQuotePreview);
 elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
 elements.chargeScreenFee.addEventListener('change', refreshQuotePreview);
@@ -1051,6 +1062,7 @@ elements.generateQuote.addEventListener('click', () => {
     }
     state.lastQuote = quote;
     elements.autoSupplierCost.value = money(quote.autoSupplierCost);
+    syncDepositUI();
     elements.quoteOutput.textContent = quote.text;
 });
 
