@@ -385,7 +385,7 @@ textarea:focus {
 
 .actions {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
     margin-top: 16px;
 }
@@ -489,6 +489,10 @@ textarea:focus {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+.filters-grid {
+    margin-top: 12px;
 }
 
 @media (max-width: 720px) {
