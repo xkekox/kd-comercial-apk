@@ -276,9 +276,17 @@ function buildQuote() {
         .filter((item) => item.categoryKey !== 'sacolas')
         .reduce((sum, item) => sum + item.quantity, 0);
     const screenFee = hasBoxes && totalBoxQuantity < 250 ? SCREEN_FEE : 0;
-    const freight = Number(elements.freightValue.value) || 0;
+    const deliveryMode = elements.deliveryMode.value;
+    const freeFreightManaus = elements.freeFreightManaus.checked;
+    const manualFreight = Number(elements.freightValue.value) || 0;
+    const freight = deliveryMode === 'retirada'
+        ? 0
+        : (freeFreightManaus && totalQuantity >= 250 ? 0 : manualFreight);
     const total = Number((subtotal + screenFee + freight).toFixed(2));
     const autoSupplierCost = Number(items.reduce((sum, item) => sum + item.supplierSubtotal, 0).toFixed(2));
+    const freightLabel = deliveryMode === 'retirada'
+        ? 'retirada pelo cliente'
+        : (freight > 0 ? money(freight) : 'gratis');
 
     const lines = [
         'KD Embalagens',
@@ -289,7 +297,8 @@ function buildQuote() {
         '',
         `Subtotal: ${money(subtotal)}`,
         `Tela: ${screenFee > 0 ? money(screenFee) : 'gratis'}`,
-        `Frete: ${freight > 0 ? money(freight) : 'retirada pelo cliente'}`,
+        `Entrega: ${deliveryMode === 'retirada' ? 'retirada pelo cliente' : 'entrega'}`,
+        `Frete: ${freightLabel}`,
         `Total: ${money(total)}`,
         `Entrada 50%: ${money(total / 2)}`
     ];
@@ -297,8 +306,8 @@ function buildQuote() {
     return {
         customerName: elements.customerName.value.trim(),
         customerPhone: normalizePhone(elements.customerPhone.value),
-        deliveryMode: elements.deliveryMode.value,
-        freeFreightManaus: elements.freeFreightManaus.checked,
+        deliveryMode,
+        freeFreightManaus,
         freight,
         total,
         depositAmount: Number((total / 2).toFixed(2)),
@@ -306,6 +315,24 @@ function buildQuote() {
         items,
         text: lines.join('\n')
     };
+}
+
+function refreshQuotePreview() {
+    const quote = buildQuote();
+    if (!quote) return;
+    state.lastQuote = quote;
+    elements.autoSupplierCost.value = money(quote.autoSupplierCost);
+    elements.quoteOutput.textContent = quote.text;
+}
+
+function syncDeliveryModeUI() {
+    const isPickup = elements.deliveryMode.value === 'retirada';
+    if (isPickup) {
+        elements.freightValue.value = '';
+        elements.freightValue.disabled = true;
+    } else {
+        elements.freightValue.disabled = false;
+    }
 }
 
 function renderItems() {
@@ -326,6 +353,7 @@ function renderItems() {
         button.addEventListener('click', () => {
             state.quoteItems.splice(Number(button.dataset.removeItem), 1);
             renderItems();
+            refreshQuotePreview();
         });
     });
 }
@@ -670,7 +698,21 @@ elements.tabs.forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tabTarget));
 });
 
-elements.category.addEventListener('change', populateModels);
+elements.category.addEventListener('change', () => {
+    populateModels();
+    refreshQuotePreview();
+});
+elements.deliveryMode.addEventListener('change', () => {
+    syncDeliveryModeUI();
+    refreshQuotePreview();
+});
+elements.freightValue.addEventListener('input', refreshQuotePreview);
+elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
+elements.customerName.addEventListener('input', refreshQuotePreview);
+elements.quantity.addEventListener('input', refreshQuotePreview);
+elements.model.addEventListener('change', refreshQuotePreview);
+elements.customModelName.addEventListener('input', refreshQuotePreview);
+elements.customUnitPrice.addEventListener('input', refreshQuotePreview);
 
 elements.addItem.addEventListener('click', () => {
     const quantity = Number(elements.quantity.value);
@@ -689,11 +731,14 @@ elements.addItem.addEventListener('click', () => {
     elements.customUnitPrice.value = '';
     elements.quantity.value = '';
     renderItems();
+    refreshQuotePreview();
 });
 
 elements.clearItems.addEventListener('click', () => {
     state.quoteItems = [];
     renderItems();
+    elements.quoteOutput.textContent = '';
+    state.lastQuote = null;
 });
 
 elements.generateQuote.addEventListener('click', () => {
@@ -738,6 +783,7 @@ elements.duplicateQuote.addEventListener('click', async () => {
 
 populateCategories();
 persistRecords();
+syncDeliveryModeUI();
 renderItems();
 renderRecords();
 renderDashboard();
