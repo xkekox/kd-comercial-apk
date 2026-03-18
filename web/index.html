@@ -213,6 +213,7 @@
                             <option value="orcamento">Orcamento</option>
                             <option value="pedido-fechado">Pedido fechado</option>
                             <option value="em-producao">Em producao</option>
+                            <option value="pronto-entregar">Pronto para entregar</option>
                             <option value="entregue">Entregue</option>
                         </select>
                     </label>
@@ -291,6 +292,7 @@
                             <option value="orcamento">Orcamento</option>
                             <option value="pedido-fechado">Pedido fechado</option>
                             <option value="em-producao">Em producao</option>
+                            <option value="pronto-entregar">Pronto para entregar</option>
                             <option value="entregue">Entregue</option>
                         </select>
                     </label>
@@ -380,9 +382,19 @@
                 <div id="customerBalances" class="list compact"></div>
             </article>
             <article class="card">
-                <h2>Em producao e pago</h2>
-                <p class="section-copy">Pedidos pagos 50% ou 100% que ainda nao foram entregues.</p>
-                <div id="productionPaidOrders" class="list compact"></div>
+                <h2>50% em producao</h2>
+                <p class="section-copy">Pedidos com entrada paga e ainda em andamento.</p>
+                <div id="productionPaid50Orders" class="list compact"></div>
+            </article>
+            <article class="card">
+                <h2>100% em producao</h2>
+                <p class="section-copy">Pedidos totalmente pagos que ainda nao foram entregues.</p>
+                <div id="productionPaid100Orders" class="list compact"></div>
+            </article>
+            <article class="card">
+                <h2>Pronto para entregar</h2>
+                <p class="section-copy">Pedidos pagos e finalizados que faltam apenas entrega ao cliente.</p>
+                <div id="readyToDeliverOrders" class="list compact"></div>
             </article>
             <article class="card">
                 <h2>Top clientes</h2>
