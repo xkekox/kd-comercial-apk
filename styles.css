@@ -249,6 +249,29 @@ textarea {
     padding: 18px;
 }
 
+.dashboard-card {
+    margin-bottom: 10px;
+}
+
+.dashboard-tight {
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
+
+.dashboard-tight h2 {
+    font-size: 22px;
+}
+
+.dashboard-tight .section-copy {
+    margin-top: 4px;
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.dashboard-tight .list.compact {
+    margin-top: 8px;
+}
+
 .card-hero {
     background:
         radial-gradient(circle at top right, rgba(255, 149, 64, 0.11), transparent 24%),
