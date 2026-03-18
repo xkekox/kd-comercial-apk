@@ -1,6 +1,9 @@
 const STORAGE_KEY = 'kd-comercial-mobile-records-v1';
 const STORAGE_BACKUP_KEY = 'kd-comercial-mobile-records-backup-v1';
 const STORAGE_META_KEY = 'kd-comercial-mobile-records-meta-v1';
+const SUPABASE_CONFIG_KEY = 'kd-comercial-supabase-config-v1';
+const DELETED_RECORDS_KEY = 'kd-comercial-deleted-records-v1';
+const SUPABASE_TABLE = 'kd_records';
 
 const SUPPLIER_COST_TABLE = {
     sacolas: {
@@ -68,10 +71,14 @@ const SCREEN_FEE = 90;
 const state = {
     quoteItems: [],
     records: loadRecords(),
+    deletedRecords: loadDeletedRecords(),
+    supabaseConfig: loadSupabaseConfig(),
     lastQuote: null,
     editingId: null,
     recordSearch: '',
-    recordStatusFilter: 'todos'
+    recordStatusFilter: 'todos',
+    syncInFlight: false,
+    autoSyncTimer: null
 };
 
 const elements = {
@@ -125,6 +132,14 @@ const elements = {
     importJson: document.getElementById('importJson'),
     importJsonFile: document.getElementById('importJsonFile'),
     exportJson: document.getElementById('exportJson'),
+    restoreBackup: document.getElementById('restoreBackup'),
+    backupStatus: document.getElementById('backupStatus'),
+    supabaseUrl: document.getElementById('supabaseUrl'),
+    supabaseAnonKey: document.getElementById('supabaseAnonKey'),
+    saveSupabaseConfig: document.getElementById('saveSupabaseConfig'),
+    testSupabaseConnection: document.getElementById('testSupabaseConnection'),
+    syncSupabaseNow: document.getElementById('syncSupabaseNow'),
+    cloudStatus: document.getElementById('cloudStatus'),
     metricRevenue: document.getElementById('metricRevenue'),
     metricProfit: document.getElementById('metricProfit'),
     metricCustomerPending: document.getElementById('metricCustomerPending'),
@@ -168,6 +183,71 @@ function safeJsonParse(rawValue) {
 
 function isValidRecordArray(value) {
     return Array.isArray(value);
+}
+
+function loadDeletedRecords() {
+    const parsed = safeJsonParse(localStorage.getItem(DELETED_RECORDS_KEY));
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+}
+
+function persistDeletedRecords() {
+    localStorage.setItem(DELETED_RECORDS_KEY, JSON.stringify(state.deletedRecords || {}));
+}
+
+function loadSupabaseConfig() {
+    const parsed = safeJsonParse(localStorage.getItem(SUPABASE_CONFIG_KEY));
+    if (!parsed || typeof parsed !== 'object') {
+        return { url: '', anonKey: '' };
+    }
+    return {
+        url: String(parsed.url || '').trim(),
+        anonKey: String(parsed.anonKey || '').trim()
+    };
+}
+
+function saveSupabaseConfigLocal() {
+    localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(state.supabaseConfig));
+}
+
+function getRecordTimestamp(record) {
+    return String(record?.updatedAt || record?.createdAt || '');
+}
+
+function getDeletedTimestamp(recordId) {
+    return String(state.deletedRecords?.[recordId] || '');
+}
+
+function isSupabaseConfigured() {
+    return Boolean(state.supabaseConfig?.url && state.supabaseConfig?.anonKey);
+}
+
+function normalizeSupabaseUrl(url) {
+    return String(url || '').trim().replace(/\/+$/, '');
+}
+
+function getSupabaseHeaders(extra = {}) {
+    return {
+        apikey: state.supabaseConfig.anonKey,
+        Authorization: `Bearer ${state.supabaseConfig.anonKey}`,
+        'Content-Type': 'application/json',
+        ...extra
+    };
+}
+
+function setCloudStatus(message, tone = 'neutral') {
+    if (!elements.cloudStatus) return;
+    elements.cloudStatus.textContent = message;
+    elements.cloudStatus.dataset.tone = tone;
+}
+
+function renderSupabaseConfig() {
+    if (elements.supabaseUrl) elements.supabaseUrl.value = state.supabaseConfig.url || '';
+    if (elements.supabaseAnonKey) elements.supabaseAnonKey.value = state.supabaseConfig.anonKey || '';
+    if (!isSupabaseConfigured()) {
+        setCloudStatus('Supabase nao configurado.', 'neutral');
+        return;
+    }
+    setCloudStatus('Supabase configurado. Pronto para sincronizar.', 'ok');
 }
 
 function loadRecords() {
@@ -288,11 +368,14 @@ function persistRecords() {
         updatedAt: new Date().toISOString(),
         totalRecords: state.records.length
     }));
+    renderBackupStatus();
+    scheduleAutoSync();
 }
 
 function syncBackupFromCurrentState() {
     if (!isValidRecordArray(state.records) || !state.records.length) return;
     localStorage.setItem(STORAGE_BACKUP_KEY, JSON.stringify(state.records));
+    renderBackupStatus();
 }
 
 function restoreFromBackup() {
@@ -307,6 +390,151 @@ function restoreFromBackup() {
         restoredFromBackup: true
     }));
     return true;
+}
+
+function renderBackupStatus() {
+    if (!elements.backupStatus) return;
+    const currentParsed = safeJsonParse(localStorage.getItem(STORAGE_KEY));
+    const backupParsed = safeJsonParse(localStorage.getItem(STORAGE_BACKUP_KEY));
+    const currentCount = Array.isArray(currentParsed) ? currentParsed.length : 0;
+    const backupCount = Array.isArray(backupParsed) ? backupParsed.length : 0;
+    elements.backupStatus.textContent = `Neste app: ${currentCount} registros | Backup local: ${backupCount} registros`;
+}
+
+function buildRemoteRows() {
+    const activeRows = state.records.map((record) => ({
+        id: record.id,
+        payload: record,
+        updated_at: getRecordTimestamp(record) || new Date().toISOString(),
+        deleted: false
+    }));
+
+    const deletedRows = Object.entries(state.deletedRecords || {}).map(([id, deletedAt]) => ({
+        id,
+        payload: null,
+        updated_at: deletedAt || new Date().toISOString(),
+        deleted: true
+    }));
+
+    return [...activeRows, ...deletedRows];
+}
+
+async function uploadRecordsToSupabase() {
+    if (!isSupabaseConfigured()) throw new Error('Supabase nao configurado.');
+    const rows = buildRemoteRows();
+    const response = await fetch(`${normalizeSupabaseUrl(state.supabaseConfig.url)}/rest/v1/${SUPABASE_TABLE}?on_conflict=id`, {
+        method: 'POST',
+        headers: getSupabaseHeaders({
+            Prefer: 'resolution=merge-duplicates,return=minimal'
+        }),
+        body: JSON.stringify(rows)
+    });
+    if (!response.ok) {
+        throw new Error(`Falha ao enviar registros: ${response.status}`);
+    }
+}
+
+async function downloadRecordsFromSupabase() {
+    if (!isSupabaseConfigured()) throw new Error('Supabase nao configurado.');
+    const response = await fetch(`${normalizeSupabaseUrl(state.supabaseConfig.url)}/rest/v1/${SUPABASE_TABLE}?select=id,payload,updated_at,deleted&order=updated_at.asc`, {
+        headers: getSupabaseHeaders()
+    });
+    if (!response.ok) {
+        throw new Error(`Falha ao baixar registros: ${response.status}`);
+    }
+    return response.json();
+}
+
+function mergeRemoteRows(remoteRows) {
+    let changed = false;
+    const localMap = new Map(state.records.map((record) => [record.id, record]));
+
+    remoteRows.forEach((row) => {
+        const remoteStamp = String(row.updated_at || '');
+        const localRecord = localMap.get(row.id);
+        const localStamp = getRecordTimestamp(localRecord);
+        const deletedStamp = getDeletedTimestamp(row.id);
+        const latestLocalStamp = [localStamp, deletedStamp].sort().slice(-1)[0] || '';
+
+        if (row.deleted) {
+            if (remoteStamp >= latestLocalStamp) {
+                if (localMap.has(row.id)) {
+                    localMap.delete(row.id);
+                    changed = true;
+                }
+                if ((state.deletedRecords[row.id] || '') !== remoteStamp) {
+                    state.deletedRecords[row.id] = remoteStamp;
+                    changed = true;
+                }
+            }
+            return;
+        }
+
+        if (!row.payload) return;
+        if (!latestLocalStamp || remoteStamp >= latestLocalStamp) {
+            localMap.set(row.id, recalculateRecord(row.payload));
+            delete state.deletedRecords[row.id];
+            changed = true;
+        }
+    });
+
+    state.records = Array.from(localMap.values());
+    persistDeletedRecords();
+    if (changed) {
+        persistRecords();
+        syncBackupFromCurrentState();
+        renderRecords();
+        renderDashboard();
+    }
+}
+
+function scheduleAutoSync() {
+    if (!isSupabaseConfigured()) return;
+    clearTimeout(state.autoSyncTimer);
+    state.autoSyncTimer = setTimeout(() => {
+        syncSupabaseNow(false);
+    }, 1200);
+}
+
+async function testSupabaseConnection() {
+    if (!isSupabaseConfigured()) {
+        setCloudStatus('Preencha URL e anon key do Supabase.', 'error');
+        return false;
+    }
+    setCloudStatus('Testando conexao com Supabase...', 'neutral');
+    try {
+        await downloadRecordsFromSupabase();
+        setCloudStatus('Conexao com Supabase OK.', 'ok');
+        return true;
+    } catch (error) {
+        setCloudStatus(error.message || 'Falha ao conectar com Supabase.', 'error');
+        return false;
+    }
+}
+
+async function syncSupabaseNow(showAlert = true) {
+    if (!isSupabaseConfigured()) {
+        setCloudStatus('Preencha URL e anon key do Supabase.', 'error');
+        if (showAlert) alert('Configure o Supabase primeiro.');
+        return false;
+    }
+    if (state.syncInFlight) return false;
+    state.syncInFlight = true;
+    setCloudStatus('Sincronizando com a nuvem...', 'neutral');
+    try {
+        await uploadRecordsToSupabase();
+        const remoteRows = await downloadRecordsFromSupabase();
+        mergeRemoteRows(remoteRows);
+        setCloudStatus(`Sincronizacao concluida. ${state.records.length} registros locais.`, 'ok');
+        if (showAlert) alert('Sincronizacao concluida.');
+        return true;
+    } catch (error) {
+        setCloudStatus(error.message || 'Erro na sincronizacao.', 'error');
+        if (showAlert) alert(error.message || 'Erro na sincronizacao.');
+        return false;
+    } finally {
+        state.syncInFlight = false;
+    }
 }
 
 function getTierBase(quantity) {
@@ -584,6 +812,8 @@ function renderRecords() {
         button.onclick = (event) => {
             event.preventDefault();
             const recordId = button.getAttribute('data-delete-record');
+            state.deletedRecords[recordId] = new Date().toISOString();
+            persistDeletedRecords();
             state.records = state.records.filter((item) => item.id !== recordId);
             persistRecords();
             renderRecords();
@@ -890,6 +1120,8 @@ function saveRecord() {
     } else {
         state.records.push(record);
     }
+    delete state.deletedRecords[record.id];
+    persistDeletedRecords();
 
     persistRecords();
     renderRecords();
@@ -913,9 +1145,14 @@ async function importJson(file) {
     const incoming = JSON.parse(text);
     if (!Array.isArray(incoming)) return;
     state.records = incoming.map(recalculateRecord);
+    incoming.forEach((record) => {
+        if (record?.id) delete state.deletedRecords[record.id];
+    });
+    persistDeletedRecords();
     persistRecords();
     renderRecords();
     renderDashboard();
+    renderBackupStatus();
 }
 
 function sendCurrentQuoteWhatsapp() {
@@ -1321,6 +1558,28 @@ elements.importJsonFile.addEventListener('change', async (event) => {
     event.target.value = '';
 });
 elements.exportJson.addEventListener('click', exportJson);
+elements.saveSupabaseConfig.addEventListener('click', () => {
+    state.supabaseConfig = {
+        url: normalizeSupabaseUrl(elements.supabaseUrl.value),
+        anonKey: String(elements.supabaseAnonKey.value || '').trim()
+    };
+    saveSupabaseConfigLocal();
+    renderSupabaseConfig();
+});
+elements.testSupabaseConnection.addEventListener('click', testSupabaseConnection);
+elements.syncSupabaseNow.addEventListener('click', () => syncSupabaseNow(true));
+elements.restoreBackup.addEventListener('click', () => {
+    const restored = restoreFromBackup();
+    if (!restored) {
+        alert('Nenhum backup local encontrado neste app.');
+        renderBackupStatus();
+        return;
+    }
+    renderRecords();
+    renderDashboard();
+    renderBackupStatus();
+    alert('Backup local restaurado com sucesso.');
+});
 elements.recordSearch.addEventListener('input', (event) => {
     state.recordSearch = event.target.value.trim().toLowerCase();
     renderRecords();
@@ -1345,3 +1604,10 @@ syncScreenFeeUI();
 renderItems();
 renderRecords();
 renderDashboard();
+renderBackupStatus();
+renderSupabaseConfig();
+if (isSupabaseConfigured()) {
+    setTimeout(() => {
+        syncSupabaseNow(false);
+    }, 400);
+}
