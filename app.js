@@ -278,7 +278,8 @@ function buildQuote() {
         .filter((item) => item.categoryKey !== 'sacolas')
         .reduce((sum, item) => sum + item.quantity, 0);
     const hasExistingScreen = elements.hasExistingScreen.checked;
-    const screenFee = hasBoxes && totalBoxQuantity < 250 && !hasExistingScreen ? SCREEN_FEE : 0;
+    const shouldChargeScreenFee = hasBoxes && totalBoxQuantity < 250 && !hasExistingScreen;
+    const screenFee = shouldChargeScreenFee ? SCREEN_FEE : 0;
     const deliveryMode = elements.deliveryMode.value;
     const freeFreightManaus = elements.freeFreightManaus.checked;
     const manualFreight = Number(elements.freightValue.value) || 0;
@@ -291,6 +292,15 @@ function buildQuote() {
         ? 'retirada pelo cliente'
         : (freight > 0 ? money(freight) : 'gratis');
 
+    let screenLabel = 'nao aplicada';
+    if (shouldChargeScreenFee) {
+        screenLabel = money(screenFee);
+    } else if (hasExistingScreen) {
+        screenLabel = 'cliente ja possui tela/logo';
+    } else if (hasBoxes && totalBoxQuantity >= 250) {
+        screenLabel = 'gratis a partir de 250 un';
+    }
+
     const lines = [
         'KD Embalagens',
         `Cliente: ${elements.customerName.value.trim()}`,
@@ -299,7 +309,7 @@ function buildQuote() {
         ...items.map((item, index) => `${index + 1}. ${item.modelKey} | ${item.quantity} un | ${money(item.subtotal)}`),
         '',
         `Subtotal: ${money(subtotal)}`,
-        `Tela: ${screenFee > 0 ? money(screenFee) : 'gratis'}`,
+        `Tela: ${screenLabel}`,
         `Entrega: ${deliveryMode === 'retirada' ? 'retirada pelo cliente' : 'entrega'}`,
         `Frete: ${freightLabel}`,
         `Total: ${money(total)}`,
