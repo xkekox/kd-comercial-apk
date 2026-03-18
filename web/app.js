@@ -235,6 +235,26 @@ function getPaymentLabel(record) {
     return 'Nao pago';
 }
 
+function isFullyPaid(record) {
+    return record.customerPaymentStatus === '100' || (Number(record.receivedAmount || 0) >= Number(record.quote?.total || 0));
+}
+
+function applyQuickUpdate(recordId, updates) {
+    const current = state.records.find((item) => item.id === recordId);
+    if (!current) return;
+
+    const next = recalculateRecord({
+        ...current,
+        ...updates,
+        updatedAt: new Date().toISOString()
+    });
+
+    state.records = state.records.map((item) => item.id === recordId ? next : item);
+    persistRecords();
+    renderRecords();
+    renderDashboard();
+}
+
 function openWhatsApp(phone, text) {
     const cleanPhone = normalizePhone(phone);
     const base = cleanPhone
@@ -497,37 +517,40 @@ function renderRecords() {
             <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
             <button type="button" data-edit-record="${record.id}">Editar</button>
+            <button type="button" data-mark-50="${record.id}">50%</button>
+            <button type="button" data-mark-100="${record.id}">100%</button>
+            <button type="button" data-status-production="${record.id}">Em producao</button>
+            <button type="button" data-status-ready="${record.id}">Pronto</button>
+            <button type="button" data-status-delivered="${record.id}">Entregue</button>
             <button type="button" data-delete-record="${record.id}">Apagar</button>
         </div>
     `).join('');
 }
 
 function renderDashboard() {
-    const revenue = state.records.reduce((sum, item) => sum + item.quote.total, 0);
-    const profit = state.records.reduce((sum, item) => sum + item.profit, 0);
+    const projectedRevenue = state.records.reduce((sum, item) => sum + item.quote.total, 0);
+    const projectedProfit = state.records.reduce((sum, item) => sum + item.profit, 0);
+    const receivedRevenue = state.records.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const realizedProfit = state.records.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
     const customerPending = state.records.reduce((sum, item) => sum + item.customerPendingAmount, 0);
     const supplierPending = state.records.reduce((sum, item) => sum + item.supplierPendingAmount, 0);
-    const average = state.records.length ? revenue / state.records.length : 0;
-    const margin = state.records.length
-        ? state.records.reduce((sum, item) => sum + item.marginPercent, 0) / state.records.length
-        : 0;
     const today = new Date().toISOString().slice(0, 10);
     const currentMonth = today.slice(0, 7);
     const followUps = state.records.filter((item) => item.nextFollowUpAt && item.nextFollowUpAt <= today);
     const todayRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 10) === today);
     const monthRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 7) === currentMonth);
-    const todayRevenue = todayRecords.reduce((sum, item) => sum + item.quote.total, 0);
-    const todayProfit = todayRecords.reduce((sum, item) => sum + item.profit, 0);
-    const monthRevenue = monthRecords.reduce((sum, item) => sum + item.quote.total, 0);
-    const monthProfit = monthRecords.reduce((sum, item) => sum + item.profit, 0);
+    const todayRevenue = todayRecords.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const todayProfit = todayRecords.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
+    const monthRevenue = monthRecords.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const monthProfit = monthRecords.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
 
-    elements.metricRevenue.textContent = money(revenue);
-    elements.metricProfit.textContent = money(profit);
+    elements.metricRevenue.textContent = money(receivedRevenue);
+    elements.metricProfit.textContent = money(realizedProfit);
     elements.metricCustomerPending.textContent = money(customerPending);
     elements.metricSupplierPending.textContent = money(supplierPending);
-    elements.metricOrders.textContent = String(state.records.length);
-    elements.metricAverage.textContent = money(average);
-    elements.metricMargin.textContent = `${margin.toFixed(2)}%`;
+    elements.metricOrders.textContent = money(projectedRevenue);
+    elements.metricAverage.textContent = money(projectedProfit);
+    elements.metricMargin.textContent = String(state.records.length);
     elements.metricFollowUp.textContent = String(followUps.length);
     elements.metricTodayRevenue.textContent = money(todayRevenue);
     elements.metricTodayProfit.textContent = money(todayProfit);
@@ -1147,6 +1170,52 @@ elements.recordsList.addEventListener('click', (event) => {
     const editButton = event.target.closest('[data-edit-record]');
     if (editButton) {
         loadRecord(editButton.dataset.editRecord);
+        return;
+    }
+
+    const mark50Button = event.target.closest('[data-mark-50]');
+    if (mark50Button) {
+        const record = state.records.find((item) => item.id === mark50Button.dataset.mark50);
+        if (!record) return;
+        applyQuickUpdate(mark50Button.dataset.mark50, {
+            customerPaymentStatus: '50',
+            receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
+        });
+        return;
+    }
+
+    const mark100Button = event.target.closest('[data-mark-100]');
+    if (mark100Button) {
+        const record = state.records.find((item) => item.id === mark100Button.dataset.mark100);
+        if (!record) return;
+        applyQuickUpdate(mark100Button.dataset.mark100, {
+            customerPaymentStatus: '100',
+            receivedAmount: Number(record.quote?.total || 0)
+        });
+        return;
+    }
+
+    const productionButton = event.target.closest('[data-status-production]');
+    if (productionButton) {
+        applyQuickUpdate(productionButton.dataset.statusProduction, {
+            status: 'em-producao'
+        });
+        return;
+    }
+
+    const readyButton = event.target.closest('[data-status-ready]');
+    if (readyButton) {
+        applyQuickUpdate(readyButton.dataset.statusReady, {
+            status: 'pronto-entregar'
+        });
+        return;
+    }
+
+    const deliveredButton = event.target.closest('[data-status-delivered]');
+    if (deliveredButton) {
+        applyQuickUpdate(deliveredButton.dataset.statusDelivered, {
+            status: 'entregue'
+        });
         return;
     }
 
