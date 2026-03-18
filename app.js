@@ -745,9 +745,6 @@ function formatDateBr(value = new Date()) {
 }
 
 function openPdfDocument(title, fileName, bodyHtml) {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
     const doc = `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -793,9 +790,32 @@ function openPdfDocument(title, fileName, bodyHtml) {
 </body>
 </html>`;
 
-    printWindow.document.open();
-    printWindow.document.write(doc);
-    printWindow.document.close();
+    const existingFrame = document.getElementById('pdfPrintFrame');
+    if (existingFrame) existingFrame.remove();
+
+    const frame = document.createElement('iframe');
+    frame.id = 'pdfPrintFrame';
+    frame.style.position = 'fixed';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '0';
+    frame.style.height = '0';
+    frame.style.border = '0';
+    document.body.appendChild(frame);
+
+    frame.onload = () => {
+        try {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+        } catch (error) {
+            const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 15000);
+        }
+    };
+
+    frame.srcdoc = doc;
 }
 
 function downloadQuotePdf() {
