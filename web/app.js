@@ -140,7 +140,9 @@ const elements = {
     topProducts: document.getElementById('topProducts'),
     profitByProduct: document.getElementById('profitByProduct'),
     customerBalances: document.getElementById('customerBalances'),
-    productionPaidOrders: document.getElementById('productionPaidOrders'),
+    productionPaid50Orders: document.getElementById('productionPaid50Orders'),
+    productionPaid100Orders: document.getElementById('productionPaid100Orders'),
+    readyToDeliverOrders: document.getElementById('readyToDeliverOrders'),
     topCustomers: document.getElementById('topCustomers'),
     profitByCustomer: document.getElementById('profitByCustomer'),
     recurringCustomers: document.getElementById('recurringCustomers'),
@@ -561,19 +563,47 @@ function renderDashboard() {
         ? balances.map((item) => `<div class="item"><strong>${item.customerName}</strong><div class="meta">Receber ${money(item.customerPendingAmount)} | Status ${item.status}</div></div>`).join('')
         : '<div class="item"><strong>Sem cobranca pendente</strong><div class="meta">Os saldos de clientes aparecem aqui.</div></div>';
 
-    const productionPaid = state.records
-        .filter((item) => item.status !== 'entregue' && (item.customerPaymentStatus === '50' || item.customerPaymentStatus === '100'))
+    const productionPaid50 = state.records
+        .filter((item) => item.status !== 'entregue' && item.status !== 'pronto-entregar' && item.customerPaymentStatus === '50')
         .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
         .slice(0, 10);
-    elements.productionPaidOrders.innerHTML = productionPaid.length
-        ? productionPaid.map((item) => `
+    elements.productionPaid50Orders.innerHTML = productionPaid50.length
+        ? productionPaid50.map((item) => `
             <div class="item">
                 <strong>${item.customerName}</strong>
-                <div class="meta">${item.status} | ${getPaymentLabel(item)} | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">${item.status} | Pago 50% | Recebido ${money(item.receivedAmount || 0)}</div>
                 <div class="meta">Falta receber ${money(item.customerPendingAmount)} | Venda ${money(item.quote.total)}</div>
             </div>
         `).join('')
-        : '<div class="item"><strong>Sem pedidos pagos em aberto</strong><div class="meta">Os pedidos pagos e ainda nao entregues aparecem aqui.</div></div>';
+        : '<div class="item"><strong>Sem pedidos com 50%</strong><div class="meta">Os pedidos com entrada paga aparecem aqui.</div></div>';
+
+    const productionPaid100 = state.records
+        .filter((item) => item.status !== 'entregue' && item.status !== 'pronto-entregar' && item.customerPaymentStatus === '100')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.productionPaid100Orders.innerHTML = productionPaid100.length
+        ? productionPaid100.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${item.status} | Pago 100% | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Venda ${money(item.quote.total)} | Fornecedor ${item.supplierPaid ? 'pago' : 'pendente'}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Sem pedidos com 100%</strong><div class="meta">Os pedidos totalmente pagos aparecem aqui.</div></div>';
+
+    const readyToDeliver = state.records
+        .filter((item) => item.status === 'pronto-entregar')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.readyToDeliverOrders.innerHTML = readyToDeliver.length
+        ? readyToDeliver.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${getPaymentLabel(item)} | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Pronto para entrega | Venda ${money(item.quote.total)}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Nada pronto para entregar</strong><div class="meta">Os pedidos finalizados aparecem aqui.</div></div>';
 
     const customerMap = {};
     state.records.forEach((record) => {
