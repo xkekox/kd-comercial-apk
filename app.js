@@ -1,43 +1,5 @@
 const STORAGE_KEY = 'kd-comercial-mobile-records-v1';
 
-const QUOTE_TABLE = {
-    sacolas: {
-        label: 'Sacolas Kraft',
-        models: {
-            'Sacola P': { 100: 1.40, 250: 1.33, 500: 1.26, 1000: 1.20 },
-            'Sacola M': { 100: 1.65, 250: 1.58, 500: 1.51, 1000: 1.45 },
-            'Sacola G': { 100: 1.70, 250: 1.63, 500: 1.56, 1000: 1.50 },
-            'Sacola GG': { 100: 1.75, 250: 1.68, 500: 1.61, 1000: 1.55 }
-        }
-    },
-    salgados: {
-        label: 'Caixas para Salgados',
-        models: {
-            'Salgado PP': { 100: 1.49, 250: 1.42, 500: 1.35, 1000: 1.29 },
-            'Salgado P': { 100: 1.67, 250: 1.60, 500: 1.53, 1000: 1.47 },
-            'Salgado M': { 100: 1.90, 250: 1.83, 500: 1.76, 1000: 1.70 },
-            'Salgado G': { 100: 2.12, 250: 2.05, 500: 1.98, 1000: 1.92 }
-        }
-    },
-    pizzas: {
-        label: 'Caixas de Pizza',
-        models: {
-            'Pizza 25cm': { 100: 1.67, 250: 1.60, 500: 1.53, 1000: 1.47 },
-            'Pizza 30cm': { 100: 2.00, 250: 1.93, 500: 1.86, 1000: 1.80 },
-            'Pizza 35cm': { 100: 2.12, 250: 2.05, 500: 1.98, 1000: 1.92 },
-            'Pizza 40cm': { 100: 2.40, 250: 2.33, 500: 2.26, 1000: 2.20 }
-        }
-    },
-    especiais: {
-        label: 'Caixas Especiais',
-        models: {
-            'Caixa Peixe': { 100: 2.17, 250: 2.10, 500: 2.03, 1000: 1.97 },
-            'Caixa Frango': { 100: 2.12, 250: 2.05, 500: 1.98, 1000: 1.92 },
-            'Caixa Tenis': { 100: 2.26, 250: 2.19, 500: 2.12, 1000: 2.06 }
-        }
-    }
-};
-
 const SUPPLIER_COST_TABLE = {
     sacolas: {
         'Sacola P': { 100: 1.10, 250: 1.10, 500: 1.10, 1000: 1.10 },
@@ -46,23 +8,58 @@ const SUPPLIER_COST_TABLE = {
         'Sacola GG': { 100: 1.40, 250: 1.40, 500: 1.40, 1000: 1.40 }
     },
     salgados: {
-        'Salgado PP': { 100: 1.19, 250: 1.14, 500: 1.08, 1000: 1.03 },
-        'Salgado P': { 100: 1.34, 250: 1.28, 500: 1.22, 1000: 1.18 },
-        'Salgado M': { 100: 1.52, 250: 1.46, 500: 1.41, 1000: 1.36 },
-        'Salgado G': { 100: 1.70, 250: 1.64, 500: 1.58, 1000: 1.54 }
+        'Salgado PP': { 100: 1.09, 250: 1.09, 500: 1.09, 1000: 1.09 },
+        'Salgado P': { 100: 1.27, 250: 1.27, 500: 1.27, 1000: 1.27 },
+        'Salgado M': { 100: 1.50, 250: 1.50, 500: 1.50, 1000: 1.50 },
+        'Salgado G': { 100: 1.72, 250: 1.72, 500: 1.72, 1000: 1.72 }
     },
     pizzas: {
-        'Pizza 25cm': { 100: 1.34, 250: 1.28, 500: 1.22, 1000: 1.18 },
-        'Pizza 30cm': { 100: 1.60, 250: 1.54, 500: 1.49, 1000: 1.44 },
-        'Pizza 35cm': { 100: 1.70, 250: 1.64, 500: 1.58, 1000: 1.54 },
-        'Pizza 40cm': { 100: 1.92, 250: 1.86, 500: 1.81, 1000: 1.76 }
+        'Pizza 25cm': { 100: 1.27, 250: 1.27, 500: 1.27, 1000: 1.27 },
+        'Pizza 30cm': { 100: 1.60, 250: 1.60, 500: 1.60, 1000: 1.60 },
+        'Pizza 35cm': { 100: 1.72, 250: 1.72, 500: 1.72, 1000: 1.72 },
+        'Pizza 40cm': { 100: 2.00, 250: 2.00, 500: 2.00, 1000: 2.00 },
+        'Pizza 40cm Quadrada': { 100: 2.00, 250: 2.00, 500: 2.00, 1000: 2.00 }
     },
     especiais: {
-        'Caixa Peixe': { 100: 1.74, 250: 1.68, 500: 1.62, 1000: 1.58 },
-        'Caixa Frango': { 100: 1.70, 250: 1.64, 500: 1.58, 1000: 1.54 },
-        'Caixa Tenis': { 100: 1.81, 250: 1.75, 500: 1.70, 1000: 1.65 }
+        'Caixa Peixe': { 100: 1.77, 250: 1.77, 500: 1.77, 1000: 1.77 },
+        'Caixa Frango': { 100: 1.72, 250: 1.72, 500: 1.72, 1000: 1.72 },
+        'Caixa Tenis': { 100: 1.86, 250: 1.86, 500: 1.86, 1000: 1.86 }
     }
 };
+
+const CATEGORY_LABELS = {
+    sacolas: 'Sacolas Kraft',
+    salgados: 'Caixas para Salgados',
+    pizzas: 'Caixas de Pizza',
+    especiais: 'Caixas Especiais'
+};
+
+const PROFIT_PER_UNIT_BY_TIER = {
+    100: 0.40,
+    250: 0.30,
+    500: 0.25,
+    1000: 0.20
+};
+
+const QUOTE_TABLE = Object.fromEntries(
+    Object.entries(SUPPLIER_COST_TABLE).map(([categoryKey, models]) => [
+        categoryKey,
+        {
+            label: CATEGORY_LABELS[categoryKey],
+            models: Object.fromEntries(
+                Object.entries(models).map(([modelKey, tiers]) => [
+                    modelKey,
+                    Object.fromEntries(
+                        Object.entries(tiers).map(([tierKey, supplierCost]) => [
+                            tierKey,
+                            Number((supplierCost + PROFIT_PER_UNIT_BY_TIER[tierKey]).toFixed(2))
+                        ])
+                    )
+                ])
+            )
+        }
+    ])
+);
 
 const SCREEN_FEE = 90;
 
