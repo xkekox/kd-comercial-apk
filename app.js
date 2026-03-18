@@ -1,4 +1,6 @@
 const STORAGE_KEY = 'kd-comercial-mobile-records-v1';
+const STORAGE_BACKUP_KEY = 'kd-comercial-mobile-records-backup-v1';
+const STORAGE_META_KEY = 'kd-comercial-mobile-records-meta-v1';
 
 const SUPPLIER_COST_TABLE = {
     sacolas: {
@@ -138,6 +140,9 @@ const elements = {
     topProducts: document.getElementById('topProducts'),
     profitByProduct: document.getElementById('profitByProduct'),
     customerBalances: document.getElementById('customerBalances'),
+    productionPaid50Orders: document.getElementById('productionPaid50Orders'),
+    productionPaid100Orders: document.getElementById('productionPaid100Orders'),
+    readyToDeliverOrders: document.getElementById('readyToDeliverOrders'),
     topCustomers: document.getElementById('topCustomers'),
     profitByCustomer: document.getElementById('profitByCustomer'),
     recurringCustomers: document.getElementById('recurringCustomers'),
@@ -152,12 +157,35 @@ function money(value) {
     }).format(Number(value) || 0);
 }
 
-function loadRecords() {
+function safeJsonParse(rawValue) {
+    if (!rawValue) return null;
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').map(recalculateRecord);
+        return JSON.parse(rawValue);
     } catch {
-        return [];
+        return null;
     }
+}
+
+function isValidRecordArray(value) {
+    return Array.isArray(value);
+}
+
+function loadRecords() {
+    const primaryRaw = localStorage.getItem(STORAGE_KEY);
+    const backupRaw = localStorage.getItem(STORAGE_BACKUP_KEY);
+    const primaryParsed = safeJsonParse(primaryRaw);
+    const backupParsed = safeJsonParse(backupRaw);
+
+    if (isValidRecordArray(primaryParsed)) {
+        return primaryParsed.map(recalculateRecord);
+    }
+
+    if (isValidRecordArray(backupParsed)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(backupParsed));
+        return backupParsed.map(recalculateRecord);
+    }
+
+    return [];
 }
 
 function recalculateRecord(record) {
@@ -201,6 +229,32 @@ function normalizePhone(value) {
     return String(value || '').replace(/\D/g, '');
 }
 
+function getPaymentLabel(record) {
+    if (record.customerPaymentStatus === '100') return 'Pago 100%';
+    if (record.customerPaymentStatus === '50') return 'Pago 50%';
+    return 'Nao pago';
+}
+
+function isFullyPaid(record) {
+    return record.customerPaymentStatus === '100' || (Number(record.receivedAmount || 0) >= Number(record.quote?.total || 0));
+}
+
+function applyQuickUpdate(recordId, updates) {
+    const current = state.records.find((item) => item.id === recordId);
+    if (!current) return;
+
+    const next = recalculateRecord({
+        ...current,
+        ...updates,
+        updatedAt: new Date().toISOString()
+    });
+
+    state.records = state.records.map((item) => item.id === recordId ? next : item);
+    persistRecords();
+    renderRecords();
+    renderDashboard();
+}
+
 function openWhatsApp(phone, text) {
     const cleanPhone = normalizePhone(phone);
     const base = cleanPhone
@@ -211,7 +265,39 @@ function openWhatsApp(phone, text) {
 }
 
 function persistRecords() {
+    if (!isValidRecordArray(state.records)) return;
+
+    const currentPrimary = localStorage.getItem(STORAGE_KEY);
+    const parsedCurrentPrimary = safeJsonParse(currentPrimary);
+
+    if (isValidRecordArray(parsedCurrentPrimary) && parsedCurrentPrimary.length) {
+        localStorage.setItem(STORAGE_BACKUP_KEY, JSON.stringify(parsedCurrentPrimary));
+    }
+
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
+    localStorage.setItem(STORAGE_META_KEY, JSON.stringify({
+        updatedAt: new Date().toISOString(),
+        totalRecords: state.records.length
+    }));
+}
+
+function syncBackupFromCurrentState() {
+    if (!isValidRecordArray(state.records) || !state.records.length) return;
+    localStorage.setItem(STORAGE_BACKUP_KEY, JSON.stringify(state.records));
+}
+
+function restoreFromBackup() {
+    const backupParsed = safeJsonParse(localStorage.getItem(STORAGE_BACKUP_KEY));
+    if (!isValidRecordArray(backupParsed) || !backupParsed.length) return false;
+
+    state.records = backupParsed.map(recalculateRecord);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.records));
+    localStorage.setItem(STORAGE_META_KEY, JSON.stringify({
+        updatedAt: new Date().toISOString(),
+        totalRecords: state.records.length,
+        restoredFromBackup: true
+    }));
+    return true;
 }
 
 function getTierBase(quantity) {
@@ -426,53 +512,45 @@ function renderRecords() {
         <div class="item">
             <strong>${record.customerName}</strong>
             <div class="meta">${record.status} | Venda ${money(record.quote.total)} | Lucro ${money(record.profit)}</div>
+            <div class="meta">${getPaymentLabel(record)} | Recebido ${money(record.receivedAmount || 0)}</div>
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
             <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
             <button type="button" data-edit-record="${record.id}">Editar</button>
+            <button type="button" data-mark-50="${record.id}">50%</button>
+            <button type="button" data-mark-100="${record.id}">100%</button>
+            <button type="button" data-status-production="${record.id}">Em producao</button>
+            <button type="button" data-status-ready="${record.id}">Pronto</button>
+            <button type="button" data-status-delivered="${record.id}">Entregue</button>
             <button type="button" data-delete-record="${record.id}">Apagar</button>
         </div>
     `).join('');
-
-    elements.recordsList.querySelectorAll('[data-edit-record]').forEach((button) => {
-        button.addEventListener('click', () => loadRecord(button.dataset.editRecord));
-    });
-    elements.recordsList.querySelectorAll('[data-delete-record]').forEach((button) => {
-        button.addEventListener('click', () => {
-            state.records = state.records.filter((item) => item.id !== button.dataset.deleteRecord);
-            persistRecords();
-            renderRecords();
-            renderDashboard();
-        });
-    });
 }
 
 function renderDashboard() {
-    const revenue = state.records.reduce((sum, item) => sum + item.quote.total, 0);
-    const profit = state.records.reduce((sum, item) => sum + item.profit, 0);
+    const projectedRevenue = state.records.reduce((sum, item) => sum + item.quote.total, 0);
+    const projectedProfit = state.records.reduce((sum, item) => sum + item.profit, 0);
+    const receivedRevenue = state.records.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const realizedProfit = state.records.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
     const customerPending = state.records.reduce((sum, item) => sum + item.customerPendingAmount, 0);
     const supplierPending = state.records.reduce((sum, item) => sum + item.supplierPendingAmount, 0);
-    const average = state.records.length ? revenue / state.records.length : 0;
-    const margin = state.records.length
-        ? state.records.reduce((sum, item) => sum + item.marginPercent, 0) / state.records.length
-        : 0;
     const today = new Date().toISOString().slice(0, 10);
     const currentMonth = today.slice(0, 7);
     const followUps = state.records.filter((item) => item.nextFollowUpAt && item.nextFollowUpAt <= today);
     const todayRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 10) === today);
     const monthRecords = state.records.filter((item) => String(item.updatedAt || item.createdAt).slice(0, 7) === currentMonth);
-    const todayRevenue = todayRecords.reduce((sum, item) => sum + item.quote.total, 0);
-    const todayProfit = todayRecords.reduce((sum, item) => sum + item.profit, 0);
-    const monthRevenue = monthRecords.reduce((sum, item) => sum + item.quote.total, 0);
-    const monthProfit = monthRecords.reduce((sum, item) => sum + item.profit, 0);
+    const todayRevenue = todayRecords.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const todayProfit = todayRecords.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
+    const monthRevenue = monthRecords.reduce((sum, item) => sum + (Number(item.receivedAmount) || 0), 0);
+    const monthProfit = monthRecords.reduce((sum, item) => sum + (isFullyPaid(item) ? item.profit : 0), 0);
 
-    elements.metricRevenue.textContent = money(revenue);
-    elements.metricProfit.textContent = money(profit);
+    elements.metricRevenue.textContent = money(receivedRevenue);
+    elements.metricProfit.textContent = money(realizedProfit);
     elements.metricCustomerPending.textContent = money(customerPending);
     elements.metricSupplierPending.textContent = money(supplierPending);
-    elements.metricOrders.textContent = String(state.records.length);
-    elements.metricAverage.textContent = money(average);
-    elements.metricMargin.textContent = `${margin.toFixed(2)}%`;
+    elements.metricOrders.textContent = money(projectedRevenue);
+    elements.metricAverage.textContent = money(projectedProfit);
+    elements.metricMargin.textContent = String(state.records.length);
     elements.metricFollowUp.textContent = String(followUps.length);
     elements.metricTodayRevenue.textContent = money(todayRevenue);
     elements.metricTodayProfit.textContent = money(todayProfit);
@@ -507,6 +585,48 @@ function renderDashboard() {
     elements.customerBalances.innerHTML = balances.length
         ? balances.map((item) => `<div class="item"><strong>${item.customerName}</strong><div class="meta">Receber ${money(item.customerPendingAmount)} | Status ${item.status}</div></div>`).join('')
         : '<div class="item"><strong>Sem cobranca pendente</strong><div class="meta">Os saldos de clientes aparecem aqui.</div></div>';
+
+    const productionPaid50 = state.records
+        .filter((item) => item.status !== 'entregue' && item.status !== 'pronto-entregar' && item.customerPaymentStatus === '50')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.productionPaid50Orders.innerHTML = productionPaid50.length
+        ? productionPaid50.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${item.status} | Pago 50% | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Falta receber ${money(item.customerPendingAmount)} | Venda ${money(item.quote.total)}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Sem pedidos com 50%</strong><div class="meta">Os pedidos com entrada paga aparecem aqui.</div></div>';
+
+    const productionPaid100 = state.records
+        .filter((item) => item.status !== 'entregue' && item.status !== 'pronto-entregar' && item.customerPaymentStatus === '100')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.productionPaid100Orders.innerHTML = productionPaid100.length
+        ? productionPaid100.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${item.status} | Pago 100% | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Venda ${money(item.quote.total)} | Fornecedor ${item.supplierPaid ? 'pago' : 'pendente'}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Sem pedidos com 100%</strong><div class="meta">Os pedidos totalmente pagos aparecem aqui.</div></div>';
+
+    const readyToDeliver = state.records
+        .filter((item) => item.status === 'pronto-entregar')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.readyToDeliverOrders.innerHTML = readyToDeliver.length
+        ? readyToDeliver.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${getPaymentLabel(item)} | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Pronto para entrega | Venda ${money(item.quote.total)}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Nada pronto para entregar</strong><div class="meta">Os pedidos finalizados aparecem aqui.</div></div>';
 
     const customerMap = {};
     state.records.forEach((record) => {
@@ -587,48 +707,68 @@ function clearForm() {
 function loadRecord(id) {
     const record = state.records.find((item) => item.id === id);
     if (!record) return;
+    try {
+        const quote = record.quote || {};
+        const quoteItems = Array.isArray(quote.items) ? quote.items : [];
+        const firstItem = quoteItems[0] || null;
 
-    state.editingId = id;
-    elements.editingBanner.classList.remove('hidden');
-    elements.editingBanner.textContent = `Editando ${record.customerName}`;
-    elements.cancelEditing.classList.remove('hidden');
-    elements.saveRecord.textContent = 'Atualizar registro';
+        state.editingId = id;
+        switchTab('quote');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        elements.editingBanner.classList.remove('hidden');
+        elements.editingBanner.textContent = `Editando ${record.customerName}`;
+        elements.cancelEditing.classList.remove('hidden');
+        elements.saveRecord.textContent = 'Atualizar registro';
 
-    elements.customerName.value = record.customerName;
-    elements.customerPhone.value = record.customerPhone || '';
-    elements.deliveryMode.value = record.quote.deliveryMode;
-    elements.freightValue.value = record.quote.freight || '';
-    elements.freeFreightManaus.checked = Boolean(record.quote.freeFreightManaus);
-    elements.chargeScreenFee.checked = Boolean(record.quote.chargeScreenFee);
-    elements.hasExistingScreen.checked = Boolean(record.quote.hasExistingScreen);
-    syncScreenFeeUI();
-    elements.supplierCost.value = record.supplierCost;
-    elements.autoSupplierCost.value = money(record.autoSupplierCost);
-    elements.receivedAmount.value = record.receivedAmount || '';
-    elements.customerPaymentStatus.value = record.customerPaymentStatus || 'nenhum';
-    elements.repassedAmount.value = record.repassedAmount || '';
-    elements.supplierPaid.checked = Boolean(record.supplierPaid);
-    elements.paymentMethod.value = record.paymentMethod;
-    elements.pixKey.value = record.pixKey || '';
-    elements.leadSource.value = record.leadSource;
-    elements.supplierName.value = record.supplierName || '';
-    elements.supplierPhone.value = record.supplierPhone || '';
-    elements.status.value = record.status;
-    elements.nextFollowUpAt.value = record.nextFollowUpAt || '';
-    elements.lastContactAt.value = record.lastContactAt || '';
-    elements.notes.value = record.notes || '';
-    elements.quoteOutput.textContent = record.quote.text;
-    elements.receiptOutput.textContent = record.receiptText || '';
-    state.lastQuote = record.quote;
-    state.quoteItems = record.quote.items.map((item) => ({
-        categoryKey: item.categoryKey,
-        categoryLabel: item.categoryLabel,
-        modelKey: item.modelKey,
-        customModelName: item.hasCustomModel ? item.modelKey : '',
-        customUnitPrice: item.hasCustomModel ? item.unitPrice : 0,
-        quantity: item.quantity
-    }));
-    renderItems();
+        if (firstItem?.categoryKey && QUOTE_TABLE[firstItem.categoryKey]) {
+            elements.category.value = firstItem.categoryKey;
+            populateModels();
+            if (!firstItem.hasCustomModel && firstItem.modelKey) {
+                elements.model.value = firstItem.modelKey;
+            }
+        }
+
+        elements.customerName.value = record.customerName || '';
+        elements.customerPhone.value = record.customerPhone || '';
+        elements.deliveryMode.value = quote.deliveryMode || 'retirada';
+        elements.freightValue.value = quote.freight || '';
+        elements.freeFreightManaus.checked = Boolean(quote.freeFreightManaus);
+        elements.chargeScreenFee.checked = Boolean(quote.chargeScreenFee);
+        elements.hasExistingScreen.checked = Boolean(quote.hasExistingScreen);
+        syncScreenFeeUI();
+        elements.supplierCost.value = record.supplierCost || '';
+        elements.autoSupplierCost.value = money(record.autoSupplierCost || 0);
+        elements.receivedAmount.value = record.receivedAmount || '';
+        elements.customerPaymentStatus.value = record.customerPaymentStatus || 'nenhum';
+        elements.repassedAmount.value = record.repassedAmount || '';
+        elements.supplierPaid.checked = Boolean(record.supplierPaid);
+        elements.paymentMethod.value = record.paymentMethod || 'pix';
+        elements.pixKey.value = record.pixKey || '';
+        elements.leadSource.value = record.leadSource || 'whatsapp';
+        elements.supplierName.value = record.supplierName || '';
+        elements.supplierPhone.value = record.supplierPhone || '';
+        elements.status.value = record.status || 'orcamento';
+        elements.nextFollowUpAt.value = record.nextFollowUpAt || '';
+        elements.lastContactAt.value = record.lastContactAt || '';
+        elements.notes.value = record.notes || '';
+        elements.quoteOutput.textContent = quote.text || '';
+        elements.receiptOutput.textContent = record.receiptText || '';
+        state.lastQuote = quote;
+        state.quoteItems = quoteItems.map((item) => ({
+            categoryKey: item.categoryKey,
+            categoryLabel: item.categoryLabel,
+            modelKey: item.modelKey,
+            customModelName: item.hasCustomModel ? item.modelKey : '',
+            customUnitPrice: item.hasCustomModel ? item.unitPrice : 0,
+            quantity: item.quantity
+        }));
+        syncDeliveryModeUI();
+        syncCustomerPaymentUI();
+        renderItems();
+    } catch (error) {
+        console.error('Falha ao abrir registro para edicao:', error);
+        alert('Nao foi possivel abrir esse registro para edicao. Vou corrigir esse caso.');
+    }
 }
 
 function saveRecord() {
@@ -707,7 +847,7 @@ async function importJson(file) {
     const text = await file.text();
     const incoming = JSON.parse(text);
     if (!Array.isArray(incoming)) return;
-    state.records = incoming;
+    state.records = incoming.map(recalculateRecord);
     persistRecords();
     renderRecords();
     renderDashboard();
@@ -1026,6 +1166,68 @@ elements.tabs.forEach((button) => {
     button.addEventListener('click', () => switchTab(button.dataset.tabTarget));
 });
 
+elements.recordsList.addEventListener('click', (event) => {
+    const editButton = event.target.closest('[data-edit-record]');
+    if (editButton) {
+        loadRecord(editButton.dataset.editRecord);
+        return;
+    }
+
+    const mark50Button = event.target.closest('[data-mark-50]');
+    if (mark50Button) {
+        const record = state.records.find((item) => item.id === mark50Button.dataset.mark50);
+        if (!record) return;
+        applyQuickUpdate(mark50Button.dataset.mark50, {
+            customerPaymentStatus: '50',
+            receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
+        });
+        return;
+    }
+
+    const mark100Button = event.target.closest('[data-mark-100]');
+    if (mark100Button) {
+        const record = state.records.find((item) => item.id === mark100Button.dataset.mark100);
+        if (!record) return;
+        applyQuickUpdate(mark100Button.dataset.mark100, {
+            customerPaymentStatus: '100',
+            receivedAmount: Number(record.quote?.total || 0)
+        });
+        return;
+    }
+
+    const productionButton = event.target.closest('[data-status-production]');
+    if (productionButton) {
+        applyQuickUpdate(productionButton.dataset.statusProduction, {
+            status: 'em-producao'
+        });
+        return;
+    }
+
+    const readyButton = event.target.closest('[data-status-ready]');
+    if (readyButton) {
+        applyQuickUpdate(readyButton.dataset.statusReady, {
+            status: 'pronto-entregar'
+        });
+        return;
+    }
+
+    const deliveredButton = event.target.closest('[data-status-delivered]');
+    if (deliveredButton) {
+        applyQuickUpdate(deliveredButton.dataset.statusDelivered, {
+            status: 'entregue'
+        });
+        return;
+    }
+
+    const deleteButton = event.target.closest('[data-delete-record]');
+    if (deleteButton) {
+        state.records = state.records.filter((item) => item.id !== deleteButton.dataset.deleteRecord);
+        persistRecords();
+        renderRecords();
+        renderDashboard();
+    }
+});
+
 elements.category.addEventListener('change', () => {
     populateModels();
     refreshQuotePreview();
@@ -1126,7 +1328,7 @@ elements.duplicateQuote.addEventListener('click', async () => {
 });
 
 populateCategories();
-persistRecords();
+syncBackupFromCurrentState();
 syncDeliveryModeUI();
 syncScreenFeeUI();
 renderItems();
