@@ -164,6 +164,10 @@
                         </select>
                     </label>
                     <label>
+                        Chave Pix
+                        <input id="pixKey" type="text" placeholder="Sua chave Pix">
+                    </label>
+                    <label>
                         Origem do lead
                         <select id="leadSource">
                             <option value="whatsapp">WhatsApp</option>
@@ -205,6 +209,7 @@
                     <button id="saveRecord" type="button">Salvar registro</button>
                     <button id="sendQuoteWhatsapp" type="button">Mandar orcamento</button>
                     <button id="sendChargeWhatsapp" type="button">Cobrar cliente</button>
+                    <button id="generateReceipt" type="button">Gerar recibo</button>
                     <button id="duplicateQuote" type="button">Duplicar texto</button>
                     <button id="cancelEditing" type="button" class="secondary hidden">Cancelar edicao</button>
                 </div>
@@ -219,6 +224,17 @@
                 </div>
                 <p class="section-copy">Texto pronto para copiar e mandar no WhatsApp.</p>
                 <pre id="quoteOutput" class="output"></pre>
+            </article>
+
+            <article class="card">
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">Recibo</p>
+                        <h2>Recibo gerado</h2>
+                    </div>
+                </div>
+                <p class="section-copy">Texto para confirmar pagamento e enviar para o cliente.</p>
+                <pre id="receiptOutput" class="output"></pre>
             </article>
         </section>
 
@@ -235,6 +251,22 @@
                         <button id="importJson" type="button">Importar JSON</button>
                         <button id="exportJson" type="button">Exportar JSON</button>
                     </div>
+                </div>
+                <div class="grid filters-grid">
+                    <label>
+                        Buscar cliente
+                        <input id="recordSearch" type="text" placeholder="Nome do cliente">
+                    </label>
+                    <label>
+                        Filtrar status
+                        <select id="recordStatusFilter">
+                            <option value="todos">Todos</option>
+                            <option value="orcamento">Orcamento</option>
+                            <option value="pedido-fechado">Pedido fechado</option>
+                            <option value="em-producao">Em producao</option>
+                            <option value="entregue">Entregue</option>
+                        </select>
+                    </label>
                 </div>
                 <div id="recordsList" class="list"></div>
             </article>
@@ -296,6 +328,11 @@
                 <h2>Clientes para cobrar</h2>
                 <p class="section-copy">Pedidos com saldo em aberto para nao perder dinheiro.</p>
                 <div id="customerBalances" class="list compact"></div>
+            </article>
+            <article class="card">
+                <h2>Top clientes</h2>
+                <p class="section-copy">Quem mais comprou e mais girou receita na KD.</p>
+                <div id="topCustomers" class="list compact"></div>
             </article>
         </section>
     </main>
