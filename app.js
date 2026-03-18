@@ -93,6 +93,7 @@ const elements = {
     autoSupplierCost: document.getElementById('autoSupplierCost'),
     receivedAmount: document.getElementById('receivedAmount'),
     repassedAmount: document.getElementById('repassedAmount'),
+    supplierPaid: document.getElementById('supplierPaid'),
     paymentMethod: document.getElementById('paymentMethod'),
     pixKey: document.getElementById('pixKey'),
     leadSource: document.getElementById('leadSource'),
@@ -379,6 +380,7 @@ function renderRecords() {
             <strong>${record.customerName}</strong>
             <div class="meta">${record.status} | Venda ${money(record.quote.total)} | Lucro ${money(record.profit)}</div>
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
+            <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
             <button type="button" data-edit-record="${record.id}">Editar</button>
             <button type="button" data-delete-record="${record.id}">Apagar</button>
@@ -517,6 +519,7 @@ function clearForm() {
     elements.autoSupplierCost.value = '';
     elements.receivedAmount.value = '';
     elements.repassedAmount.value = '';
+    elements.supplierPaid.checked = false;
     elements.pixKey.value = '';
     elements.supplierName.value = '';
     elements.notes.value = '';
@@ -548,6 +551,7 @@ function loadRecord(id) {
     elements.autoSupplierCost.value = money(record.autoSupplierCost);
     elements.receivedAmount.value = record.receivedAmount || '';
     elements.repassedAmount.value = record.repassedAmount || '';
+    elements.supplierPaid.checked = Boolean(record.supplierPaid);
     elements.paymentMethod.value = record.paymentMethod;
     elements.pixKey.value = record.pixKey || '';
     elements.leadSource.value = record.leadSource;
@@ -575,7 +579,9 @@ function saveRecord() {
 
     const supplierCost = Number(elements.supplierCost.value) || state.lastQuote.autoSupplierCost || 0;
     const receivedAmount = Number(elements.receivedAmount.value) || 0;
-    const repassedAmount = Number(elements.repassedAmount.value) || 0;
+    const repassedAmount = elements.supplierPaid.checked
+        ? supplierCost
+        : (Number(elements.repassedAmount.value) || 0);
     const profit = Number((state.lastQuote.total - supplierCost).toFixed(2));
     const marginPercent = state.lastQuote.total > 0
         ? Number(((profit / state.lastQuote.total) * 100).toFixed(2))
@@ -607,6 +613,7 @@ function saveRecord() {
         leadSource: elements.leadSource.value,
         supplierName: elements.supplierName.value.trim(),
         repassedAmount,
+        supplierPaid: repassedAmount >= supplierCost && supplierCost > 0,
         customerPendingAmount: Number((state.lastQuote.total - receivedAmount).toFixed(2)),
         supplierPendingAmount: Number((supplierCost - repassedAmount).toFixed(2)),
         nextFollowUpAt: elements.nextFollowUpAt.value,
@@ -705,6 +712,12 @@ elements.category.addEventListener('change', () => {
 elements.deliveryMode.addEventListener('change', () => {
     syncDeliveryModeUI();
     refreshQuotePreview();
+});
+elements.supplierPaid.addEventListener('change', () => {
+    const supplierCost = Number(elements.supplierCost.value) || state.lastQuote?.autoSupplierCost || 0;
+    if (elements.supplierPaid.checked && supplierCost > 0) {
+        elements.repassedAmount.value = supplierCost.toFixed(2);
+    }
 });
 elements.freightValue.addEventListener('input', refreshQuotePreview);
 elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
