@@ -632,53 +632,68 @@ function clearForm() {
 function loadRecord(id) {
     const record = state.records.find((item) => item.id === id);
     if (!record) return;
+    try {
+        const quote = record.quote || {};
+        const quoteItems = Array.isArray(quote.items) ? quote.items : [];
+        const firstItem = quoteItems[0] || null;
 
-    state.editingId = id;
-    switchTab('quote');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    elements.editingBanner.classList.remove('hidden');
-    elements.editingBanner.textContent = `Editando ${record.customerName}`;
-    elements.cancelEditing.classList.remove('hidden');
-    elements.saveRecord.textContent = 'Atualizar registro';
+        state.editingId = id;
+        switchTab('quote');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        elements.editingBanner.classList.remove('hidden');
+        elements.editingBanner.textContent = `Editando ${record.customerName}`;
+        elements.cancelEditing.classList.remove('hidden');
+        elements.saveRecord.textContent = 'Atualizar registro';
 
-    elements.customerName.value = record.customerName;
-    elements.customerPhone.value = record.customerPhone || '';
-    elements.deliveryMode.value = record.quote.deliveryMode;
-    elements.freightValue.value = record.quote.freight || '';
-    elements.freeFreightManaus.checked = Boolean(record.quote.freeFreightManaus);
-    elements.chargeScreenFee.checked = Boolean(record.quote.chargeScreenFee);
-    elements.hasExistingScreen.checked = Boolean(record.quote.hasExistingScreen);
-    syncScreenFeeUI();
-    elements.supplierCost.value = record.supplierCost;
-    elements.autoSupplierCost.value = money(record.autoSupplierCost);
-    elements.receivedAmount.value = record.receivedAmount || '';
-    elements.customerPaymentStatus.value = record.customerPaymentStatus || 'nenhum';
-    elements.repassedAmount.value = record.repassedAmount || '';
-    elements.supplierPaid.checked = Boolean(record.supplierPaid);
-    elements.paymentMethod.value = record.paymentMethod;
-    elements.pixKey.value = record.pixKey || '';
-    elements.leadSource.value = record.leadSource;
-    elements.supplierName.value = record.supplierName || '';
-    elements.supplierPhone.value = record.supplierPhone || '';
-    elements.status.value = record.status;
-    elements.nextFollowUpAt.value = record.nextFollowUpAt || '';
-    elements.lastContactAt.value = record.lastContactAt || '';
-    elements.notes.value = record.notes || '';
-    elements.quoteOutput.textContent = record.quote.text;
-    elements.receiptOutput.textContent = record.receiptText || '';
-    state.lastQuote = record.quote;
-    state.quoteItems = record.quote.items.map((item) => ({
-        categoryKey: item.categoryKey,
-        categoryLabel: item.categoryLabel,
-        modelKey: item.modelKey,
-        customModelName: item.hasCustomModel ? item.modelKey : '',
-        customUnitPrice: item.hasCustomModel ? item.unitPrice : 0,
-        quantity: item.quantity
-    }));
-    populateModels();
-    syncDeliveryModeUI();
-    syncCustomerPaymentUI();
-    renderItems();
+        if (firstItem?.categoryKey && QUOTE_TABLE[firstItem.categoryKey]) {
+            elements.category.value = firstItem.categoryKey;
+            populateModels();
+            if (!firstItem.hasCustomModel && firstItem.modelKey) {
+                elements.model.value = firstItem.modelKey;
+            }
+        }
+
+        elements.customerName.value = record.customerName || '';
+        elements.customerPhone.value = record.customerPhone || '';
+        elements.deliveryMode.value = quote.deliveryMode || 'retirada';
+        elements.freightValue.value = quote.freight || '';
+        elements.freeFreightManaus.checked = Boolean(quote.freeFreightManaus);
+        elements.chargeScreenFee.checked = Boolean(quote.chargeScreenFee);
+        elements.hasExistingScreen.checked = Boolean(quote.hasExistingScreen);
+        syncScreenFeeUI();
+        elements.supplierCost.value = record.supplierCost || '';
+        elements.autoSupplierCost.value = money(record.autoSupplierCost || 0);
+        elements.receivedAmount.value = record.receivedAmount || '';
+        elements.customerPaymentStatus.value = record.customerPaymentStatus || 'nenhum';
+        elements.repassedAmount.value = record.repassedAmount || '';
+        elements.supplierPaid.checked = Boolean(record.supplierPaid);
+        elements.paymentMethod.value = record.paymentMethod || 'pix';
+        elements.pixKey.value = record.pixKey || '';
+        elements.leadSource.value = record.leadSource || 'whatsapp';
+        elements.supplierName.value = record.supplierName || '';
+        elements.supplierPhone.value = record.supplierPhone || '';
+        elements.status.value = record.status || 'orcamento';
+        elements.nextFollowUpAt.value = record.nextFollowUpAt || '';
+        elements.lastContactAt.value = record.lastContactAt || '';
+        elements.notes.value = record.notes || '';
+        elements.quoteOutput.textContent = quote.text || '';
+        elements.receiptOutput.textContent = record.receiptText || '';
+        state.lastQuote = quote;
+        state.quoteItems = quoteItems.map((item) => ({
+            categoryKey: item.categoryKey,
+            categoryLabel: item.categoryLabel,
+            modelKey: item.modelKey,
+            customModelName: item.hasCustomModel ? item.modelKey : '',
+            customUnitPrice: item.hasCustomModel ? item.unitPrice : 0,
+            quantity: item.quantity
+        }));
+        syncDeliveryModeUI();
+        syncCustomerPaymentUI();
+        renderItems();
+    } catch (error) {
+        console.error('Falha ao abrir registro para edicao:', error);
+        alert('Nao foi possivel abrir esse registro para edicao. Vou corrigir esse caso.');
+    }
 }
 
 function saveRecord() {
