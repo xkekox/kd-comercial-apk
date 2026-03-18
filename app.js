@@ -94,7 +94,7 @@ const elements = {
     supplierCost: document.getElementById('supplierCost'),
     autoSupplierCost: document.getElementById('autoSupplierCost'),
     receivedAmount: document.getElementById('receivedAmount'),
-    customerPaidDeposit: document.getElementById('customerPaidDeposit'),
+    customerPaymentStatus: document.getElementById('customerPaymentStatus'),
     repassedAmount: document.getElementById('repassedAmount'),
     supplierPaid: document.getElementById('supplierPaid'),
     paymentMethod: document.getElementById('paymentMethod'),
@@ -310,6 +310,7 @@ function buildQuote() {
 
     const lines = [
         'KD Embalagens',
+        'Orcamento comercial',
         `Cliente: ${elements.customerName.value.trim()}`,
         '',
         'ITENS',
@@ -320,7 +321,9 @@ function buildQuote() {
         `Entrega: ${deliveryMode === 'retirada' ? 'retirada pelo cliente' : 'entrega'}`,
         `Frete: ${freightLabel}`,
         `Total: ${money(total)}`,
-        `Entrada 50%: ${money(total / 2)}`
+        `Entrada 50%: ${money(total / 2)}`,
+        '',
+        'Prazo de producao: 7 dias uteis apos confirmacao do pagamento.'
     ];
 
     return {
@@ -367,10 +370,16 @@ function syncScreenFeeUI() {
     }
 }
 
-function syncDepositUI() {
+function syncCustomerPaymentUI() {
     if (!state.lastQuote) return;
-    if (elements.customerPaidDeposit.checked) {
+
+    const status = elements.customerPaymentStatus.value;
+    if (status === '50') {
         elements.receivedAmount.value = state.lastQuote.depositAmount.toFixed(2);
+    } else if (status === '100') {
+        elements.receivedAmount.value = state.lastQuote.total.toFixed(2);
+    } else {
+        elements.receivedAmount.value = '';
     }
 }
 
@@ -558,7 +567,7 @@ function clearForm() {
     elements.supplierCost.value = '';
     elements.autoSupplierCost.value = '';
     elements.receivedAmount.value = '';
-    elements.customerPaidDeposit.checked = false;
+    elements.customerPaymentStatus.value = 'nenhum';
     elements.repassedAmount.value = '';
     elements.supplierPaid.checked = false;
     elements.pixKey.value = '';
@@ -596,7 +605,7 @@ function loadRecord(id) {
     elements.supplierCost.value = record.supplierCost;
     elements.autoSupplierCost.value = money(record.autoSupplierCost);
     elements.receivedAmount.value = record.receivedAmount || '';
-    elements.customerPaidDeposit.checked = Number(record.receivedAmount || 0) >= Number(record.depositAmount || 0) && Number(record.depositAmount || 0) > 0;
+    elements.customerPaymentStatus.value = record.customerPaymentStatus || 'nenhum';
     elements.repassedAmount.value = record.repassedAmount || '';
     elements.supplierPaid.checked = Boolean(record.supplierPaid);
     elements.paymentMethod.value = record.paymentMethod;
@@ -630,6 +639,7 @@ function saveRecord() {
     const repassedAmount = elements.supplierPaid.checked
         ? supplierCost
         : (Number(elements.repassedAmount.value) || 0);
+    const customerPaymentStatus = elements.customerPaymentStatus.value;
     const profit = Number((state.lastQuote.total - supplierCost).toFixed(2));
     const marginPercent = state.lastQuote.total > 0
         ? Number(((profit / state.lastQuote.total) * 100).toFixed(2))
@@ -652,6 +662,7 @@ function saveRecord() {
         profit,
         marginPercent,
         depositAmount: state.lastQuote.depositAmount,
+        customerPaymentStatus,
         notes: elements.notes.value.trim(),
         receivedAmount,
         paymentMethod: elements.paymentMethod.value,
@@ -755,14 +766,22 @@ function generateReceiptText() {
     if (!quote) return '';
     const receivedAmount = Number(elements.receivedAmount.value) || 0;
     if (receivedAmount <= 0) return '';
+    const paymentStatus = elements.customerPaymentStatus.value;
+    const paymentLabel = paymentStatus === '100'
+        ? 'Pagamento integral'
+        : paymentStatus === '50'
+            ? 'Pagamento de 50% de entrada'
+            : 'Pagamento parcial';
     return [
         'KD Embalagens',
         'Recibo de pagamento',
         `Cliente: ${quote.customerName}`,
+        `Tipo de pagamento: ${paymentLabel}`,
         `Valor recebido: ${money(receivedAmount)}`,
         `Forma de pagamento: ${elements.paymentMethod.value}`,
         `Referente ao pedido: ${quote.items.map((item) => item.modelKey).join(', ')}`,
-        `Data: ${new Date().toLocaleDateString('pt-BR')}`
+        `Data: ${new Date().toLocaleDateString('pt-BR')}`,
+        'Prazo de producao: 7 dias uteis apos confirmacao do pagamento.'
     ].join('\n');
 }
 
@@ -902,6 +921,10 @@ function downloadQuotePdf() {
                     <div class="label">Entrada</div>
                     <div class="value">${money(quote.depositAmount)}</div>
                 </div>
+                <div>
+                    <div class="label">Prazo</div>
+                    <div class="value">7 dias uteis</div>
+                </div>
             </div>
         </div>
 
@@ -928,7 +951,7 @@ function downloadQuotePdf() {
 
         <div class="card">
             <div class="label">Observacao</div>
-            <div class="note">Orcamento gerado pela KD Embalagens. Para confirmar o pedido, valide os itens, o valor e a entrada de 50%.</div>
+            <div class="note">Orcamento gerado pela KD Embalagens. Para confirmar o pedido, valide os itens, o valor e a entrada de 50%. Prazo de producao: 7 dias uteis apos confirmacao do pagamento.</div>
         </div>
     `;
 
@@ -974,12 +997,16 @@ function downloadReceiptPdf() {
                     <div class="label">Pedido</div>
                     <div class="value">${escapeHtml(quote.items.map((item) => item.modelKey).join(', '))}</div>
                 </div>
+                <div>
+                    <div class="label">Prazo</div>
+                    <div class="value">7 dias uteis</div>
+                </div>
             </div>
         </div>
 
         <div class="card">
             <div class="label">Declaracao</div>
-            <div class="note">Recebemos de ${escapeHtml(quote.customerName)} o valor de ${money(receivedAmount)}, referente ao pedido descrito acima.</div>
+            <div class="note">Recebemos de ${escapeHtml(quote.customerName)} o valor de ${money(receivedAmount)}, referente ao pedido descrito acima. Prazo de producao: 7 dias uteis apos confirmacao do pagamento.</div>
         </div>
     `;
 
@@ -1013,7 +1040,7 @@ elements.supplierPaid.addEventListener('change', () => {
         elements.repassedAmount.value = supplierCost.toFixed(2);
     }
 });
-elements.customerPaidDeposit.addEventListener('change', syncDepositUI);
+elements.customerPaymentStatus.addEventListener('change', syncCustomerPaymentUI);
 elements.freightValue.addEventListener('input', refreshQuotePreview);
 elements.freeFreightManaus.addEventListener('change', refreshQuotePreview);
 elements.chargeScreenFee.addEventListener('change', refreshQuotePreview);
@@ -1062,7 +1089,7 @@ elements.generateQuote.addEventListener('click', () => {
     }
     state.lastQuote = quote;
     elements.autoSupplierCost.value = money(quote.autoSupplierCost);
-    syncDepositUI();
+    syncCustomerPaymentUI();
     elements.quoteOutput.textContent = quote.text;
 });
 
