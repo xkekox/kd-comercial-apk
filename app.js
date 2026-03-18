@@ -538,10 +538,12 @@ function renderRecords() {
     `).join('');
 
     elements.recordsList.querySelectorAll('[data-mark-50]').forEach((button) => {
-        button.onclick = () => {
-            const record = state.records.find((item) => item.id === button.dataset.mark50);
+        button.onclick = (event) => {
+            event.preventDefault();
+            const recordId = button.getAttribute('data-mark-50');
+            const record = state.records.find((item) => item.id === recordId);
             if (!record) return;
-            applyQuickUpdate(button.dataset.mark50, {
+            applyQuickUpdate(recordId, {
                 customerPaymentStatus: '50',
                 receivedAmount: record.quote?.depositAmount || Number(record.quote?.total || 0) / 2
             });
@@ -549,10 +551,12 @@ function renderRecords() {
     });
 
     elements.recordsList.querySelectorAll('[data-mark-100]').forEach((button) => {
-        button.onclick = () => {
-            const record = state.records.find((item) => item.id === button.dataset.mark100);
+        button.onclick = (event) => {
+            event.preventDefault();
+            const recordId = button.getAttribute('data-mark-100');
+            const record = state.records.find((item) => item.id === recordId);
             if (!record) return;
-            applyQuickUpdate(button.dataset.mark100, {
+            applyQuickUpdate(recordId, {
                 customerPaymentStatus: '100',
                 receivedAmount: Number(record.quote?.total || 0)
             });
@@ -560,26 +564,37 @@ function renderRecords() {
     });
 
     elements.recordsList.querySelectorAll('[data-status-production]').forEach((button) => {
-        button.onclick = () => applyQuickUpdate(button.dataset.statusProduction, {
+        button.onclick = (event) => {
+            event.preventDefault();
+            applyQuickUpdate(button.getAttribute('data-status-production'), {
             status: 'em-producao'
-        });
+            });
+        };
     });
 
     elements.recordsList.querySelectorAll('[data-status-ready]').forEach((button) => {
-        button.onclick = () => applyQuickUpdate(button.dataset.statusReady, {
+        button.onclick = (event) => {
+            event.preventDefault();
+            applyQuickUpdate(button.getAttribute('data-status-ready'), {
             status: 'pronto-entregar'
-        });
+            });
+        };
     });
 
     elements.recordsList.querySelectorAll('[data-status-delivered]').forEach((button) => {
-        button.onclick = () => applyQuickUpdate(button.dataset.statusDelivered, {
+        button.onclick = (event) => {
+            event.preventDefault();
+            applyQuickUpdate(button.getAttribute('data-status-delivered'), {
             status: 'entregue'
-        });
+            });
+        };
     });
 
     elements.recordsList.querySelectorAll('[data-delete-record]').forEach((button) => {
-        button.onclick = () => {
-            state.records = state.records.filter((item) => item.id !== button.dataset.deleteRecord);
+        button.onclick = (event) => {
+            event.preventDefault();
+            const recordId = button.getAttribute('data-delete-record');
+            state.records = state.records.filter((item) => item.id !== recordId);
             persistRecords();
             renderRecords();
             renderDashboard();
