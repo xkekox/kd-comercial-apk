@@ -1,9 +1,9 @@
 {
   "name": "KD Comercial Mobile",
   "short_name": "KD Comercial",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
-  "background_color": "#f5ede3",
-  "theme_color": "#9b4f25",
+  "background_color": "#120f0d",
+  "theme_color": "#df6e2d",
   "description": "Controle comercial e financeiro da KD Embalagens no celular."
 }
