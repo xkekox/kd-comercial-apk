@@ -140,6 +140,7 @@ const elements = {
     topProducts: document.getElementById('topProducts'),
     profitByProduct: document.getElementById('profitByProduct'),
     customerBalances: document.getElementById('customerBalances'),
+    productionPaidOrders: document.getElementById('productionPaidOrders'),
     topCustomers: document.getElementById('topCustomers'),
     profitByCustomer: document.getElementById('profitByCustomer'),
     recurringCustomers: document.getElementById('recurringCustomers'),
@@ -224,6 +225,12 @@ function recalculateRecord(record) {
 
 function normalizePhone(value) {
     return String(value || '').replace(/\D/g, '');
+}
+
+function getPaymentLabel(record) {
+    if (record.customerPaymentStatus === '100') return 'Pago 100%';
+    if (record.customerPaymentStatus === '50') return 'Pago 50%';
+    return 'Nao pago';
 }
 
 function openWhatsApp(phone, text) {
@@ -483,6 +490,7 @@ function renderRecords() {
         <div class="item">
             <strong>${record.customerName}</strong>
             <div class="meta">${record.status} | Venda ${money(record.quote.total)} | Lucro ${money(record.profit)}</div>
+            <div class="meta">${getPaymentLabel(record)} | Recebido ${money(record.receivedAmount || 0)}</div>
             <div class="meta">Receber ${money(record.customerPendingAmount)} | Fornecedor ${money(record.supplierPendingAmount)}</div>
             <div class="meta">Repassado ${money(record.repassedAmount || 0)} | ${record.supplierPaid ? 'Fornecedor pago' : 'Fornecedor pendente'}</div>
             <div class="meta">${record.customerPhone || 'Sem WhatsApp'}${record.nextFollowUpAt ? ` | Follow-up ${record.nextFollowUpAt}` : ''}</div>
@@ -552,6 +560,20 @@ function renderDashboard() {
     elements.customerBalances.innerHTML = balances.length
         ? balances.map((item) => `<div class="item"><strong>${item.customerName}</strong><div class="meta">Receber ${money(item.customerPendingAmount)} | Status ${item.status}</div></div>`).join('')
         : '<div class="item"><strong>Sem cobranca pendente</strong><div class="meta">Os saldos de clientes aparecem aqui.</div></div>';
+
+    const productionPaid = state.records
+        .filter((item) => item.status !== 'entregue' && (item.customerPaymentStatus === '50' || item.customerPaymentStatus === '100'))
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))
+        .slice(0, 10);
+    elements.productionPaidOrders.innerHTML = productionPaid.length
+        ? productionPaid.map((item) => `
+            <div class="item">
+                <strong>${item.customerName}</strong>
+                <div class="meta">${item.status} | ${getPaymentLabel(item)} | Recebido ${money(item.receivedAmount || 0)}</div>
+                <div class="meta">Falta receber ${money(item.customerPendingAmount)} | Venda ${money(item.quote.total)}</div>
+            </div>
+        `).join('')
+        : '<div class="item"><strong>Sem pedidos pagos em aberto</strong><div class="meta">Os pedidos pagos e ainda nao entregues aparecem aqui.</div></div>';
 
     const customerMap = {};
     state.records.forEach((record) => {
