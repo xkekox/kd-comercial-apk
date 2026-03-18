@@ -11,17 +11,39 @@
 <body>
     <main class="app-shell">
         <header class="hero">
-            <div class="hero-mark">KD</div>
-            <div class="hero-copy">
-                <p class="eyebrow">KD Embalagens</p>
-                <h1>KD Comercial</h1>
-                <p class="subtitle">Sistema comercial de bolso para vender, cobrar, repassar e acompanhar a operacao da KD sem planilha perdida.</p>
+            <div class="hero-topline">
+                <span class="status-dot"></span>
+                <span>Operacao KD</span>
+                <span class="status-sep">|</span>
+                <span>Manaus</span>
+            </div>
+            <div class="hero-main">
+                <div class="hero-mark">KD</div>
+                <div class="hero-copy">
+                    <p class="eyebrow">KD Embalagens</p>
+                    <h1>KD Comercial</h1>
+                    <p class="subtitle">Controle comercial, pedidos, recebimento e repasse em uma interface mais limpa para usar no celular.</p>
+                </div>
             </div>
             <div class="hero-badges">
                 <span class="badge">Orcamento</span>
-                <span class="badge">Receber</span>
+                <span class="badge">Recebimento</span>
                 <span class="badge">Fornecedor</span>
-                <span class="badge">Dashboard</span>
+                <span class="badge">Follow-up</span>
+            </div>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <span>Modo</span>
+                    <strong>App web</strong>
+                </div>
+                <div class="hero-stat">
+                    <span>Uso</span>
+                    <strong>Celular</strong>
+                </div>
+                <div class="hero-stat">
+                    <span>Foco</span>
+                    <strong>Fechar</strong>
+                </div>
             </div>
         </header>
 
@@ -33,7 +55,13 @@
 
         <section data-tab="quote" class="tab-panel active">
             <article class="card card-hero">
-                <h2>Novo orcamento</h2>
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">Painel comercial</p>
+                        <h2>Novo orcamento</h2>
+                    </div>
+                    <div class="card-pill">Rapido</div>
+                </div>
                 <p class="section-copy">Monte o pedido, gere o valor e salve o controle interno sem sair do celular.</p>
                 <div id="editingBanner" class="banner hidden"></div>
                 <div class="grid">
@@ -85,13 +113,24 @@
             </article>
 
             <article class="card">
-                <h2>Itens</h2>
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">Pedido</p>
+                        <h2>Itens</h2>
+                    </div>
+                </div>
                 <p class="section-copy">Aqui ficam os produtos do pedido antes de gerar o valor final.</p>
                 <div id="items" class="list"></div>
             </article>
 
             <article class="card">
-                <h2>Controle interno</h2>
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">Financeiro e comercial</p>
+                        <h2>Controle interno</h2>
+                    </div>
+                    <div class="card-pill subtle">KD</div>
+                </div>
                 <p class="section-copy">Recebimento, repasse, origem do lead e acompanhamento do cliente.</p>
                 <div class="grid">
                     <label>
@@ -166,7 +205,12 @@
             </article>
 
             <article class="card">
-                <h2>Orcamento gerado</h2>
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">WhatsApp</p>
+                        <h2>Orcamento gerado</h2>
+                    </div>
+                </div>
                 <p class="section-copy">Texto pronto para copiar e mandar no WhatsApp.</p>
                 <pre id="quoteOutput" class="output"></pre>
             </article>
@@ -176,6 +220,7 @@
             <article class="card">
                 <div class="section-head">
                     <div>
+                        <p class="card-kicker">Historico</p>
                         <h2>Registros salvos</h2>
                         <p class="section-copy">Edite, apague e acompanhe os pedidos gravados no aparelho.</p>
                     </div>
@@ -186,6 +231,16 @@
         </section>
 
         <section data-tab="dashboard" class="tab-panel">
+            <article class="card panel-banner">
+                <div class="card-head">
+                    <div>
+                        <p class="card-kicker">Visao rapida</p>
+                        <h2>Resumo da operacao</h2>
+                    </div>
+                    <div class="card-pill">Hoje</div>
+                </div>
+                <p class="section-copy">Acompanhe venda, lucro, pendencias e follow-up sem abrir planilha.</p>
+            </article>
             <article class="metrics">
                 <div class="metric">
                     <span>Vendas</span>
