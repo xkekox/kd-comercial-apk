@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>KD Comercial Mobile</title>
+    <meta name="theme-color" content="#9b4f25">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="hero">
+            <div class="hero-mark">KD</div>
+            <div class="hero-copy">
+                <p class="eyebrow">KD Embalagens</p>
+                <h1>KD Comercial</h1>
+                <p class="subtitle">Sistema comercial de bolso para vender, cobrar, repassar e acompanhar a operacao da KD sem planilha perdida.</p>
+            </div>
+            <div class="hero-badges">
+                <span class="badge">Orcamento</span>
+                <span class="badge">Receber</span>
+                <span class="badge">Fornecedor</span>
+                <span class="badge">Dashboard</span>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button data-tab-target="quote" class="active" type="button">Orcar</button>
+            <button data-tab-target="records" type="button">Registros</button>
+            <button data-tab-target="dashboard" type="button">Dashboard</button>
+        </nav>
+
+        <section data-tab="quote" class="tab-panel active">
+            <article class="card card-hero">
+                <h2>Novo orcamento</h2>
+                <p class="section-copy">Monte o pedido, gere o valor e salve o controle interno sem sair do celular.</p>
+                <div id="editingBanner" class="banner hidden"></div>
+                <div class="grid">
+                    <label>
+                        Cliente
+                        <input id="customerName" type="text" placeholder="Ex.: Pizzaria Exemplo">
+                    </label>
+                    <label>
+                        Linha
+                        <select id="category"></select>
+                    </label>
+                    <label>
+                        Modelo
+                        <select id="model"></select>
+                    </label>
+                    <label>
+                        Modelo manual
+                        <input id="customModelName" type="text" placeholder="Ex.: Sacola Delivery Extra G">
+                    </label>
+                    <label>
+                        Valor unitario manual
+                        <input id="customUnitPrice" type="number" min="0" step="0.01" placeholder="1.95">
+                    </label>
+                    <label>
+                        Quantidade
+                        <input id="quantity" type="number" min="1" step="1" placeholder="250">
+                    </label>
+                    <label>
+                        Entrega
+                        <select id="deliveryMode">
+                            <option value="retirada">Retirada pelo cliente</option>
+                            <option value="entrega">Entrega</option>
+                        </select>
+                    </label>
+                    <label>
+                        Frete
+                        <input id="freightValue" type="number" min="0" step="0.01" placeholder="70.00">
+                    </label>
+                </div>
+                <label class="checkbox-line">
+                    <input id="freeFreightManaus" type="checkbox">
+                    Frete gratis Manaus 250+
+                </label>
+                <div class="actions">
+                    <button id="addItem" type="button">Adicionar item</button>
+                    <button id="clearItems" type="button">Limpar itens</button>
+                    <button id="generateQuote" type="button">Gerar orcamento</button>
+                </div>
+            </article>
+
+            <article class="card">
+                <h2>Itens</h2>
+                <p class="section-copy">Aqui ficam os produtos do pedido antes de gerar o valor final.</p>
+                <div id="items" class="list"></div>
+            </article>
+
+            <article class="card">
+                <h2>Controle interno</h2>
+                <p class="section-copy">Recebimento, repasse, origem do lead e acompanhamento do cliente.</p>
+                <div class="grid">
+                    <label>
+                        Custo fornecedor
+                        <input id="supplierCost" type="number" min="0" step="0.01" placeholder="420.00">
+                    </label>
+                    <label>
+                        Custo automatico
+                        <input id="autoSupplierCost" type="text" readonly>
+                    </label>
+                    <label>
+                        Valor recebido
+                        <input id="receivedAmount" type="number" min="0" step="0.01" placeholder="210.00">
+                    </label>
+                    <label>
+                        Valor repassado fornecedor
+                        <input id="repassedAmount" type="number" min="0" step="0.01" placeholder="150.00">
+                    </label>
+                    <label>
+                        Forma de pagamento
+                        <select id="paymentMethod">
+                            <option value="pix">Pix</option>
+                            <option value="dinheiro">Dinheiro</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="cartao">Cartao</option>
+                            <option value="boleto">Boleto</option>
+                        </select>
+                    </label>
+                    <label>
+                        Origem do lead
+                        <select id="leadSource">
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="indicacao">Indicacao</option>
+                            <option value="cliente-antigo">Cliente antigo</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="trafego-pago">Trafego pago</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </label>
+                    <label>
+                        Fornecedor
+                        <input id="supplierName" type="text" placeholder="Fornecedor principal">
+                    </label>
+                    <label>
+                        Status
+                        <select id="status">
+                            <option value="orcamento">Orcamento</option>
+                            <option value="pedido-fechado">Pedido fechado</option>
+                            <option value="em-producao">Em producao</option>
+                            <option value="entregue">Entregue</option>
+                        </select>
+                    </label>
+                    <label>
+                        Proximo follow-up
+                        <input id="nextFollowUpAt" type="date">
+                    </label>
+                    <label>
+                        Ultimo contato
+                        <input id="lastContactAt" type="date">
+                    </label>
+                    <label class="full">
+                        Observacoes
+                        <textarea id="notes" rows="3" placeholder="Observacoes internas"></textarea>
+                    </label>
+                </div>
+                <div class="actions">
+                    <button id="saveRecord" type="button">Salvar registro</button>
+                    <button id="duplicateQuote" type="button">Duplicar texto</button>
+                    <button id="cancelEditing" type="button" class="secondary hidden">Cancelar edicao</button>
+                </div>
+            </article>
+
+            <article class="card">
+                <h2>Orcamento gerado</h2>
+                <p class="section-copy">Texto pronto para copiar e mandar no WhatsApp.</p>
+                <pre id="quoteOutput" class="output"></pre>
+            </article>
+        </section>
+
+        <section data-tab="records" class="tab-panel">
+            <article class="card">
+                <div class="section-head">
+                    <div>
+                        <h2>Registros salvos</h2>
+                        <p class="section-copy">Edite, apague e acompanhe os pedidos gravados no aparelho.</p>
+                    </div>
+                    <button id="exportJson" type="button">Exportar JSON</button>
+                </div>
+                <div id="recordsList" class="list"></div>
+            </article>
+        </section>
+
+        <section data-tab="dashboard" class="tab-panel">
+            <article class="metrics">
+                <div class="metric">
+                    <span>Vendas</span>
+                    <strong id="metricRevenue">R$ 0,00</strong>
+                </div>
+                <div class="metric">
+                    <span>Lucro</span>
+                    <strong id="metricProfit">R$ 0,00</strong>
+                </div>
+                <div class="metric">
+                    <span>Receber</span>
+                    <strong id="metricCustomerPending">R$ 0,00</strong>
+                </div>
+                <div class="metric">
+                    <span>Fornecedor</span>
+                    <strong id="metricSupplierPending">R$ 0,00</strong>
+                </div>
+            </article>
+            <article class="metrics">
+                <div class="metric">
+                    <span>Pedidos</span>
+                    <strong id="metricOrders">0</strong>
+                </div>
+                <div class="metric">
+                    <span>Ticket medio</span>
+                    <strong id="metricAverage">R$ 0,00</strong>
+                </div>
+                <div class="metric">
+                    <span>Margem media</span>
+                    <strong id="metricMargin">0%</strong>
+                </div>
+                <div class="metric">
+                    <span>Follow-up</span>
+                    <strong id="metricFollowUp">0</strong>
+                </div>
+            </article>
+            <article class="card">
+                <h2>Top produtos</h2>
+                <p class="section-copy">Os itens com mais giro no aparelho.</p>
+                <div id="topProducts" class="list compact"></div>
+            </article>
+            <article class="card">
+                <h2>Clientes para cobrar</h2>
+                <p class="section-copy">Pedidos com saldo em aberto para nao perder dinheiro.</p>
+                <div id="customerBalances" class="list compact"></div>
+            </article>
+        </section>
+    </main>
+    <script src="/app.js"></script>
+</body>
+</html>
