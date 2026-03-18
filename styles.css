@@ -554,6 +554,27 @@ textarea:focus {
     margin-top: 12px;
 }
 
+.storage-note,
+.backup-status {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #b4a89f;
+}
+
+.backup-status {
+    color: #ffcc8d;
+    font-weight: 700;
+}
+
+.backup-status[data-tone="ok"] {
+    color: #72d59e;
+}
+
+.backup-status[data-tone="error"] {
+    color: #ff9b86;
+}
+
 @media (max-width: 720px) {
     .app-shell {
         padding: 14px 12px 34px;
