@@ -4,6 +4,10 @@ const STORAGE_META_KEY = 'kd-comercial-mobile-records-meta-v1';
 const SUPABASE_CONFIG_KEY = 'kd-comercial-supabase-config-v1';
 const DELETED_RECORDS_KEY = 'kd-comercial-deleted-records-v1';
 const SUPABASE_TABLE = 'kd_records';
+const DEFAULT_SUPABASE_CONFIG = {
+    url: 'https://ixnlonpywqxkfbqolilt.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4bmxvbnB5d3F4a2ZicW9saWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTQ4MzUsImV4cCI6MjA4OTQzMDgzNX0.4aanRI5EEavExlN7hSlkJ8COlROt6INWLKhSfhJSYCs'
+};
 
 const SUPPLIER_COST_TABLE = {
     sacolas: {
@@ -197,11 +201,11 @@ function persistDeletedRecords() {
 function loadSupabaseConfig() {
     const parsed = safeJsonParse(localStorage.getItem(SUPABASE_CONFIG_KEY));
     if (!parsed || typeof parsed !== 'object') {
-        return { url: '', anonKey: '' };
+        return { ...DEFAULT_SUPABASE_CONFIG };
     }
     return {
-        url: String(parsed.url || '').trim(),
-        anonKey: String(parsed.anonKey || '').trim()
+        url: String(parsed.url || DEFAULT_SUPABASE_CONFIG.url).trim(),
+        anonKey: String(parsed.anonKey || DEFAULT_SUPABASE_CONFIG.anonKey).trim()
     };
 }
 
